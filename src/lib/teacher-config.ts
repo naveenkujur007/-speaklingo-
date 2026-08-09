@@ -51,6 +51,28 @@ export const DIFFICULTIES: DifficultyOption[] = [
   { code: "advanced", label: "Advanced", description: "Complex sentences, business vocabulary" },
 ];
 
+// ---- TTS voice options ----
+// Available voices in z-ai-web-dev-sdk. Default is "chuichui" (lively/energetic)
+// so the teacher sounds upbeat, not drowsy.
+export interface VoiceOption {
+  code: string;
+  label: string;
+  description: string;
+}
+
+export const VOICES: VoiceOption[] = [
+  { code: "chuichui", label: "Lively", description: "Energetic & cute (default)" },
+  { code: "luodo", label: "Charismatic", description: "Engaging & expressive" },
+  { code: "tongtong", label: "Warm", description: "Gentle & friendly" },
+  { code: "kazi", label: "Clear", description: "Standard & crisp" },
+  { code: "douji", label: "Natural", description: "Smooth & fluent" },
+  { code: "xiaochen", label: "Calm", description: "Steady & professional" },
+  { code: "jam", label: "British", description: "English gentleman tone" },
+];
+
+export const DEFAULT_VOICE = "chuichui";
+export const DEFAULT_TTS_SPEED = 1.15;
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -188,5 +210,129 @@ export function parseTeacherOutput(
     return { reply, corrections: valid };
   } catch {
     return { reply, corrections: [] };
+  }
+}
+
+// ============================================================
+// LESSON / TUITION TEACHER MODE
+// Systematic language teaching: vocabulary, grammar, phrases, quiz.
+// ============================================================
+
+export interface VocabItem {
+  word: string;
+  pronunciation: string; // simple phonetic / IPA-lite
+  partOfSpeech: string; // noun, verb, adj...
+  meaning: string; // short meaning in hintLanguage
+  example: string; // example sentence in target language
+  exampleTranslation: string; // translation in hintLanguage
+}
+
+export interface GrammarLesson {
+  title: string;
+  rule: string; // short rule in hintLanguage
+  structure: string; // e.g. "Subject + have/has + past participle"
+  examples: string[]; // 2-3 example sentences
+  commonMistake: string; // a typical learner mistake + fix
+}
+
+export interface PhraseItem {
+  phrase: string;
+  meaning: string; // meaning in hintLanguage
+  when: string; // when to use it
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  answer: number; // index of correct option
+  explanation: string;
+}
+
+export interface Lesson {
+  language: string;
+  level: Difficulty;
+  topic: string;
+  title: string;
+  intro: string; // 1-2 sentence warm intro
+  vocabulary: VocabItem[];
+  grammar: GrammarLesson;
+  phrases: PhraseItem[];
+  quiz: QuizQuestion[];
+  homework: string; // a small practice task
+}
+
+export function buildLessonSystemPrompt(opts: {
+  language: string;
+  level: Difficulty;
+  topic: string;
+  hintLanguage?: string;
+}): string {
+  const { language, level, topic, hintLanguage = "Hindi/Hinglish" } = opts;
+  const languageName =
+    LANGUAGES.find((l) => l.code === language)?.name ?? "English";
+  const topicInfo = TOPICS.find((t) => t.code === topic);
+  const topicLabel = topicInfo?.label ?? "General";
+  const topicDesc = topicInfo?.description ?? "General conversation";
+
+  const levelGuide: Record<Difficulty, string> = {
+    beginner:
+      "CEFR A1-A2. Use very common everyday words. Grammar focus on tenses (simple present/past/future), articles, basic question forms.",
+    intermediate:
+      "CEFR B1-B2. Use common idioms, phrasal verbs, conditionals, modals. Grammar focus on perfect tenses, conditionals, passive voice.",
+    advanced:
+      "CEFR C1-C2. Use advanced vocabulary, idioms, formal/informal register. Grammar focus on subjunctive, inversion, complex clauses.",
+  };
+
+  return `You are LinguaBot Tuition Teacher, an energetic and structured ${languageName} teacher.
+
+GOAL
+- Teach a focused mini-lesson on the topic: ${topicLabel} (${topicDesc}).
+- Target level: ${level}. ${levelGuide[level]}
+- Hint language (for meanings/translations/explanations): ${hintLanguage}.
+
+LESSON STRUCTURE
+Build a complete lesson with these parts:
+1. intro: A warm 1-2 sentence greeting in ${languageName} (+ tiny ${hintLanguage} hint if needed) that sets up today's topic.
+2. vocabulary: 5 new words/phrases related to the topic. Each item: word, pronunciation (simple phonetic), partOfSpeech, meaning (in ${hintLanguage}), example sentence (in ${languageName}), exampleTranslation (in ${hintLanguage}).
+3. grammar: ONE key grammar point useful for this topic. Include title, rule (in ${hintLanguage}), structure pattern, 2-3 examples (in ${languageName}), and one commonMistake learners make (with the fix).
+4. phrases: 4 useful survival phrases for this topic. Each: phrase (in ${languageName}), meaning (in ${hintLanguage}), when (when to use it, in ${hintLanguage}).
+5. quiz: 3 multiple-choice questions testing today's vocab/grammar. Each: question, 4 options, answer (0-3 index), explanation (in ${hintLanguage}).
+6. homework: One small speaking/writing practice task the learner can do right now.
+
+OUTPUT FORMAT (STRICT JSON)
+Respond with ONLY a valid JSON object matching the Lesson interface above. No markdown, no code fences, no commentary before or after. Use double quotes. No trailing commas.
+
+Example shape:
+{"language":"english","level":"beginner","topic":"daily-life","title":"...","intro":"...","vocabulary":[{...}],"grammar":{...},"phrases":[{...}],"quiz":[{...}],"homework":"..."}
+
+RULES
+- All example/phrase/quiz-option text in the ${languageName} being learned.
+- All meaning/translation/explanation text in ${hintLanguage}.
+- Keep examples natural and short.
+- Vocabulary words must be relevant to the topic and at the right level.
+- Quiz options must be plausible (no obvious joke answers).
+- Output MUST be parseable by JSON.parse.`;
+}
+
+// Best-effort JSON extraction from an LLM response that may include
+// accidental prose or markdown fences around the JSON.
+export function extractLessonJson(raw: string): Lesson | null {
+  let text = raw.trim();
+  // Strip markdown fences
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  // Try direct parse first
+  try {
+    return JSON.parse(text) as Lesson;
+  } catch {
+    // Try to find the first {...} block
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]) as Lesson;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 }

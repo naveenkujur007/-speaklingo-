@@ -22,12 +22,16 @@ interface ChatStoreState {
   isSending: boolean;
   isTranscribing: boolean;
   autoSpeak: boolean;
+  voice: string;
+  ttsSpeed: number;
 
   setLanguage: (l: string) => void;
   setLevel: (l: Difficulty) => void;
   setTopic: (t: string) => void;
   setSessionId: (id: string | null) => void;
   setAutoSpeak: (v: boolean) => void;
+  setVoice: (v: string) => void;
+  setTtsSpeed: (n: number) => void;
   setIsSending: (v: boolean) => void;
   setIsTranscribing: (v: boolean) => void;
 
@@ -50,12 +54,16 @@ export const useChatStore = create<ChatStoreState>((set) => ({
   isSending: false,
   isTranscribing: false,
   autoSpeak: true,
+  voice: "chuichui",
+  ttsSpeed: 1.15,
 
   setLanguage: (l) => set({ language: l }),
   setLevel: (l) => set({ level: l }),
   setTopic: (t) => set({ topic: t }),
   setSessionId: (id) => set({ sessionId: id }),
   setAutoSpeak: (v) => set({ autoSpeak: v }),
+  setVoice: (v) => set({ voice: v }),
+  setTtsSpeed: (n) => set({ ttsSpeed: n }),
   setIsSending: (v) => set({ isSending: v }),
   setIsTranscribing: (v) => set({ isTranscribing: v }),
 

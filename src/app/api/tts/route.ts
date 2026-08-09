@@ -44,9 +44,11 @@ function splitTextIntoChunks(text: string, maxLength = 1000): string[] {
 // Returns audio/wav binary. For long text we only synthesize the first chunk
 // to keep latency low for a conversational UI; the frontend can request
 // additional chunks if needed.
+// Default voice = "chuichui" (lively/energetic), default speed = 1.15
+// so the teacher sounds upbeat instead of slow/drowsy.
 export async function POST(req: NextRequest) {
   try {
-    const { text, voice = "tongtong", speed = 1.0 } = await req.json();
+    const { text, voice = "chuichui", speed = 1.15 } = await req.json();
 
     if (!text || typeof text !== "string" || !text.trim()) {
       return NextResponse.json(

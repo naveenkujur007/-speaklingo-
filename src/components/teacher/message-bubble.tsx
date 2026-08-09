@@ -12,16 +12,22 @@ interface MessageBubbleProps {
   isLoading?: boolean;
   error?: string;
   autoSpeak?: boolean;
+  voice?: string;
+  ttsSpeed?: number;
   onSpeak?: (audio: HTMLAudioElement) => void;
 }
 
 // Plays TTS for the given text via /api/tts.
-async function playTTS(text: string): Promise<HTMLAudioElement | null> {
+async function playTTS(
+  text: string,
+  voice?: string,
+  speed?: number
+): Promise<HTMLAudioElement | null> {
   try {
     const res = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, voice, speed }),
     });
     if (!res.ok) return null;
     const blob = await res.blob();
@@ -41,6 +47,8 @@ export function MessageBubble({
   isLoading,
   error,
   autoSpeak,
+  voice,
+  ttsSpeed,
   onSpeak,
 }: MessageBubbleProps) {
   const isUser = role === "user";
@@ -59,18 +67,18 @@ export function MessageBubble({
     queueMicrotask(() => {
       if (active) setSpeaking(true);
     });
-    playTTS(content).finally(() => {
+    playTTS(content, voice, ttsSpeed).finally(() => {
       if (active) setSpeaking(false);
     });
     return () => {
       active = false;
     };
-  }, [isUser, content, isLoading, autoSpeak]);
+  }, [isUser, content, isLoading, autoSpeak, voice, ttsSpeed]);
 
   const handlePlay = async () => {
     if (!content) return;
     setSpeaking(true);
-    const audio = await playTTS(content);
+    const audio = await playTTS(content, voice, ttsSpeed);
     setSpeaking(false);
     if (audio && onSpeak) onSpeak(audio);
   };
