@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background: rounded square with emerald gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="cap" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
+      <feOffset dx="0" dy="4" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Rounded background -->
+  <rect x="0" y="0" width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
+
+  <!-- Speech bubble (white) -->
+  <g filter="url(#shadow)">
+    <path d="M 128 160
+             Q 128 120 168 120
+             L 344 120
+             Q 384 120 384 160
+             L 384 296
+             Q 384 336 344 336
+             L 224 336
+             L 176 384
+             Q 168 392 160 384
+             L 168 336
+             L 168 336
+             Q 128 336 128 296
+             Z"
+          fill="#ffffff"/>
+  </g>
+
+  <!-- Graduation cap inside the bubble -->
+  <g filter="url(#shadow)">
+    <!-- Cap base (diamond/mortarboard) -->
+    <path d="M 176 200 L 256 168 L 336 200 L 256 232 Z" fill="url(#cap)"/>
+    <!-- Cap crown (the part under the mortarboard) -->
+    <path d="M 216 224 L 216 264 Q 256 284 296 264 L 296 224 L 256 244 Z" fill="#f59e0b"/>
+    <!-- Tassel -->
+    <line x1="336" y1="200" x2="336" y2="240" stroke="#dc2626" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="336" cy="248" r="8" fill="#dc2626"/>
+  </g>
+
+  <!-- Small dots inside bubble (representing talking/text) -->
+  <circle cx="200" cy="280" r="6" fill="#10b981" opacity="0.4"/>
+  <circle cx="224" cy="280" r="6" fill="#10b981" opacity="0.6"/>
+  <circle cx="248" cy="280" r="6" fill="#10b981" opacity="0.8"/>
+</svg>

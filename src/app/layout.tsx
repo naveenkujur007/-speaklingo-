@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { PWAInstallPrompt } from "@/components/teacher/pwa-install-prompt";
+import { ServiceWorkerRegister } from "@/components/teacher/sw-register";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LinguaBot - AI Spoken Language Teacher",
   description:
-    "Talk with an AI language teacher that catches your mistakes and helps you improve. Voice in, voice out, real-time corrections. Multi-language ready, English-focused.",
+    "Talk with an AI language teacher that catches your mistakes and helps you improve. Voice in, voice out, real-time corrections. Structured A1-C2 curriculum, spaced repetition, pronunciation scoring, role-play scenarios.",
   keywords: [
     "language learning",
     "english speaking",
@@ -24,15 +26,35 @@ export const metadata: Metadata = {
     "spoken english",
     "conversation practice",
     "pronunciation",
+    "PWA",
+    "installable",
   ],
   authors: [{ name: "LinguaBot" }],
+  // PWA manifest + icons
+  manifest: "/manifest.json",
+  applicationName: "LinguaBot",
+  appleWebApp: {
+    capable: true,
+    title: "LinguaBot",
+    statusBarStyle: "default",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/favicon-32.png"],
   },
   openGraph: {
     title: "LinguaBot - AI Spoken Language Teacher",
     description:
-      "Talk with an AI teacher that catches your mistakes and helps you improve.",
+      "Talk with an AI teacher that catches your mistakes and helps you improve. Installable PWA - add to home screen on laptop & mobile.",
     url: "https://chat.z.ai",
     siteName: "LinguaBot",
     type: "website",
@@ -43,6 +65,15 @@ export const metadata: Metadata = {
     description:
       "Talk with an AI teacher that catches your mistakes and helps you improve.",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#10b981",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -57,6 +88,8 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <PWAInstallPrompt />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

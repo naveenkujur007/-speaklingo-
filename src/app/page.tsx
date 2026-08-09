@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LANGUAGES } from "@/lib/teacher-config";
+import type { Section } from "@/hooks/use-app-store";
 
 export default function Home() {
   const app = useAppStore();
@@ -55,6 +56,31 @@ export default function Home() {
   const [navSheetOpen, setNavSheetOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Honor ?section=xxx URL param so manifest shortcuts can deep-link.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get("section");
+    if (section) {
+      const valid: Section[] = [
+        "home",
+        "curriculum",
+        "practice",
+        "review",
+        "pronunciation",
+        "roleplay",
+        "translate",
+        "achievements",
+      ];
+      if (valid.includes(section as Section)) {
+        app.setSection(section as Section);
+      }
+      // Clean the URL.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("section");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [app]);
 
   // Sync app store settings into chat store so the practice mode still works.
   // Only call setters when the value actually differs to avoid loops.
