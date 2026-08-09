@@ -42,6 +42,17 @@ export async function POST(req: NextRequest) {
         starred: true,
       },
     });
+    // Auto-create a review card so it shows up in the SRS queue.
+    await db.review.create({
+      data: {
+        language,
+        learnedItemId: created.id,
+        ease: 2.5,
+        interval: 0,
+        repetitions: 0,
+        dueAt: new Date(),
+      },
+    }).catch(() => {});
     return NextResponse.json({ item: created });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal server error";

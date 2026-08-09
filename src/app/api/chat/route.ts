@@ -7,6 +7,7 @@ import {
   type ChatMessage,
   type Difficulty,
 } from "@/lib/teacher-config";
+import { touchStreak } from "@/app/api/curriculum/route";
 
 // In-memory SDK singleton (re-use across requests).
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
@@ -106,6 +107,30 @@ export async function POST(req: NextRequest) {
           type: c.type,
           explanation: c.explanation,
         })),
+      });
+    }
+
+    // 7. Touch the streak + award first-conversation achievement
+    await touchStreak(language);
+    await db.achievement.upsert({
+      where: { code_language: { code: "first-conversation", language } },
+      update: {},
+      create: { code: "first-conversation", language },
+    });
+    // Word-count achievements
+    const wordCount = await db.learnedItem.count({ where: { language } });
+    if (wordCount >= 10) {
+      await db.achievement.upsert({
+        where: { code_language: { code: "ten-words", language } },
+        update: {},
+        create: { code: "ten-words", language },
+      });
+    }
+    if (wordCount >= 50) {
+      await db.achievement.upsert({
+        where: { code_language: { code: "fifty-words", language } },
+        update: {},
+        create: { code: "fifty-words", language },
       });
     }
 
