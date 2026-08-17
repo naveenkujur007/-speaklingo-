@@ -41,6 +41,7 @@ interface LessonViewProps {
   voice: string;
   ttsSpeed: number;
   onStatsRefresh: () => void;
+  hintLanguage?: string;
 }
 
 interface StarredResponse {
@@ -54,6 +55,7 @@ export function LessonView({
   voice,
   ttsSpeed,
   onStatsRefresh,
+  hintLanguage,
 }: LessonViewProps) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,7 +75,13 @@ export function LessonView({
         const res = await fetch("/api/lesson", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ language, level, topic, regenerate: opts.regenerate ?? false }),
+          body: JSON.stringify({
+            language,
+            level,
+            topic,
+            regenerate: opts.regenerate ?? false,
+            hintLanguage,
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -88,7 +96,7 @@ export function LessonView({
         setLoading(false);
       }
     },
-    [language, level, topic]
+    [language, level, topic, hintLanguage]
   );
 
   // Load starred words for this language so the cards show "Saved" state.

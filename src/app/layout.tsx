@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallPrompt } from "@/components/teacher/pwa-install-prompt";
 import { ServiceWorkerRegister } from "@/components/teacher/sw-register";
+import { AudioUnlock } from "@/components/teacher/audio-unlock";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -90,6 +91,7 @@ export default function RootLayout({
         <Toaster />
         <PWAInstallPrompt />
         <ServiceWorkerRegister />
+        <AudioUnlock />
       </body>
     </html>
   );

@@ -61,7 +61,7 @@ const LEVEL_COLORS: Record<CEFRLevel, { bg: string; text: string; ring: string }
 };
 
 export function CurriculumSection() {
-  const { language, refreshTick, triggerRefresh, voice, ttsSpeed } = useAppStore();
+  const { language, refreshTick, triggerRefresh, voice, ttsSpeed, hintLanguage } = useAppStore();
   const [data, setData] = useState<CurriculumData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
@@ -156,6 +156,7 @@ export function CurriculumSection() {
           voice={voice}
           ttsSpeed={ttsSpeed}
           onStatsRefresh={triggerRefresh}
+          hintLanguage={hintLanguage}
         />
         <Card className="p-4 bg-emerald-50 border-emerald-200">
           <p className="text-sm text-stone-700 mb-2">

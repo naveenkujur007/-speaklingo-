@@ -44,10 +44,11 @@ export async function GET(req: NextRequest) {
 // Generates a fresh lesson via LLM, saves it to DB, returns it.
 export async function POST(req: NextRequest) {
   try {
-    const { language, level, topic, regenerate } = await req.json();
+    const { language, level, topic, regenerate, hintLanguage } = await req.json();
     const lang = language || "english";
     const lvl: Difficulty = (level as Difficulty) || "beginner";
     const tp = topic || "daily-life";
+    const hint = hintLanguage || "English";
 
     // If not explicitly regenerating, try to return today's existing lesson.
     if (!regenerate) {
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       language: lang,
       level: lvl,
       topic: tp,
-      hintLanguage: "Hindi/Hinglish",
+      hintLanguage: hint,
     });
 
     const zai = await getZAI();

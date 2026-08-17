@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { LANGUAGES } from "@/lib/teacher-config";
 import type { Section } from "@/hooks/use-app-store";
 import { hasPremiumAccess } from "@/lib/owner-mode";
+import { detectHintLanguage } from "@/lib/pricing";
 
 export default function Home() {
   const app = useAppStore();
@@ -65,6 +66,14 @@ export default function Home() {
   useEffect(() => {
     setIsPremium(hasPremiumAccess());
   }, []);
+
+  // Auto-detect hint language from user's country on first mount.
+  useEffect(() => {
+    const detected = detectHintLanguage();
+    if (detected !== app.hintLanguage) {
+      app.setHintLanguage(detected);
+    }
+  }, [app]);
 
   // Honor ?section=xxx URL param so manifest shortcuts can deep-link.
   useEffect(() => {
@@ -269,6 +278,9 @@ export default function Home() {
           autoSpeak={app.autoSpeak}
           voice={app.voice}
           ttsSpeed={app.ttsSpeed}
+          ttsEngine={app.ttsEngine}
+          nativeVoiceURI={app.nativeVoiceURI}
+          hintLanguage={app.hintLanguage}
           onLanguageChange={(v) => {
             app.setLanguage(v);
             store.reset();
@@ -284,6 +296,9 @@ export default function Home() {
           onAutoSpeakChange={app.setAutoSpeak}
           onVoiceChange={app.setVoice}
           onTtsSpeedChange={app.setTtsSpeed}
+          onTtsEngineChange={app.setTtsEngine}
+          onNativeVoiceURIChange={app.setNativeVoiceURI}
+          onHintLanguageChange={app.setHintLanguage}
         />
       </TabsContent>
       <TabsContent value="progress" className="mt-4">

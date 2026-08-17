@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { Difficulty } from "@/lib/teacher-config";
+import type { HintLanguage } from "@/lib/pricing";
 
 export type Section =
   | "home"
@@ -13,6 +14,8 @@ export type Section =
   | "translate"
   | "achievements";
 
+export type TTSEngine = "native" | "ai";
+
 interface AppStoreState {
   section: Section;
   language: string;
@@ -21,7 +24,9 @@ interface AppStoreState {
   autoSpeak: boolean;
   voice: string;
   ttsSpeed: number;
-  // Bump this number to trigger re-fetches of stats/progress/achievements.
+  ttsEngine: TTSEngine;
+  nativeVoiceURI: string | null;
+  hintLanguage: HintLanguage;
   refreshTick: number;
 
   setSection: (s: Section) => void;
@@ -31,6 +36,9 @@ interface AppStoreState {
   setAutoSpeak: (v: boolean) => void;
   setVoice: (v: string) => void;
   setTtsSpeed: (n: number) => void;
+  setTtsEngine: (e: TTSEngine) => void;
+  setNativeVoiceURI: (uri: string | null) => void;
+  setHintLanguage: (l: HintLanguage) => void;
   triggerRefresh: () => void;
 }
 
@@ -40,8 +48,11 @@ export const useAppStore = create<AppStoreState>((set) => ({
   level: "beginner",
   topic: "daily-life",
   autoSpeak: true,
-  voice: "chuichui",
-  ttsSpeed: 1.15,
+  voice: "kazi",
+  ttsSpeed: 1.0,
+  ttsEngine: "native",
+  nativeVoiceURI: null,
+  hintLanguage: "English",
   refreshTick: 0,
 
   setSection: (s) => set({ section: s }),
@@ -51,5 +62,8 @@ export const useAppStore = create<AppStoreState>((set) => ({
   setAutoSpeak: (v) => set({ autoSpeak: v }),
   setVoice: (v) => set({ voice: v }),
   setTtsSpeed: (n) => set({ ttsSpeed: n }),
+  setTtsEngine: (e) => set({ ttsEngine: e }),
+  setNativeVoiceURI: (uri) => set({ nativeVoiceURI: uri }),
+  setHintLanguage: (l) => set({ hintLanguage: l }),
   triggerRefresh: () => set((s) => ({ refreshTick: s.refreshTick + 1 })),
 }));
