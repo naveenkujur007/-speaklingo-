@@ -16,6 +16,7 @@ import { PronunciationSection } from "@/components/sections/pronunciation-sectio
 import { RolePlaySection } from "@/components/sections/roleplay-section";
 import { TranslateSection } from "@/components/sections/translate-section";
 import { AchievementsSection } from "@/components/sections/achievements-section";
+import { PaywallDialog } from "@/components/teacher/paywall-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,10 +42,12 @@ import {
   GraduationCap,
   BarChart3,
   Star,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LANGUAGES } from "@/lib/teacher-config";
 import type { Section } from "@/hooks/use-app-store";
+import { hasPremiumAccess } from "@/lib/owner-mode";
 
 export default function Home() {
   const app = useAppStore();
@@ -54,8 +57,14 @@ export default function Home() {
   const [statsRefresh, setStatsRefresh] = useState(0);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [navSheetOpen, setNavSheetOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsPremium(hasPremiumAccess());
+  }, []);
 
   // Honor ?section=xxx URL param so manifest shortcuts can deep-link.
   useEffect(() => {
@@ -411,6 +420,22 @@ export default function Home() {
               <span className="text-stone-400">·</span>
               <span className="capitalize">{app.level}</span>
             </div>
+            {/* Premium / Upgrade button */}
+            {isPremium ? (
+              <div className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-1.5 rounded-full">
+                <Crown className="h-3.5 w-3.5" />
+                Premium
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => setPaywallOpen(true)}
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs"
+              >
+                <Crown className="h-3.5 w-3.5 mr-1" />
+                Upgrade
+              </Button>
+            )}
             {/* Mobile nav sheet */}
             <Sheet open={navSheetOpen} onOpenChange={setNavSheetOpen}>
               <SheetTrigger asChild>
@@ -518,6 +543,20 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* Paywall Dialog */}
+      <PaywallDialog
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+        lessonsCompleted={0}
+        onUnlock={() => {
+          setIsPremium(true);
+          toast({
+            title: "Premium unlocked! 🎉",
+            description: "Enjoy unlimited access to all features.",
+          });
+        }}
+      />
     </div>
   );
 }
