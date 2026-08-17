@@ -346,14 +346,137 @@ const englishNodes: CurriculumLevel[] = [
   },
 ];
 
-export const CURRICULA: Curriculum[] = [
+// ---- Language metadata for universal curriculum generation ----
+interface LangMeta {
+  code: string;
+  name: string;
+  flag: string;
+  idPrefix: string;
+  scriptNote: string;
+}
+
+const LANGUAGES_META: LangMeta[] = [
+  { code: "english", name: "English", flag: "🇬🇧", idPrefix: "en", scriptNote: "Latin script." },
+  { code: "hindi", name: "Hindi", flag: "🇮🇳", idPrefix: "hi", scriptNote: "Devanagari script. Include romanization for beginners." },
+  { code: "spanish", name: "Spanish", flag: "🇪🇸", idPrefix: "es", scriptNote: "Latin script. Note tú/usted distinction." },
+  { code: "french", name: "French", flag: "🇫🇷", idPrefix: "fr", scriptNote: "Latin script. Include accents. Note tu/vous distinction." },
+  { code: "german", name: "German", flag: "🇩🇪", idPrefix: "de", scriptNote: "Latin script. Include umlauts (ä, ö, ü) and eszett (ß). Note du/Sie distinction." },
+  { code: "japanese", name: "Japanese", flag: "🇯🇵", idPrefix: "ja", scriptNote: "Hiragana, katakana, kanji. Include romaji for beginners." },
+  { code: "chinese", name: "Chinese", flag: "🇨🇳", idPrefix: "zh", scriptNote: "Simplified Chinese characters. Include pinyin with tone marks." },
+  { code: "arabic", name: "Arabic", flag: "🇸🇦", idPrefix: "ar", scriptNote: "Arabic script (RTL). Include transliteration for beginners." },
+];
+
+// Universal lesson template — same 24-lesson structure for all languages.
+interface LessonTemplate {
+  order: number;
+  title: string;
+  goal: string;
+  topic: string;
+  focus: string;
+  estimatedMinutes: number;
+}
+
+const LEVEL_TEMPLATES: { level: CEFRLevel; title: string; description: string; lessons: LessonTemplate[] }[] = [
   {
-    language: "english",
-    name: "English",
-    flag: "🇬🇧",
-    levels: englishNodes,
+    level: "A1",
+    title: "A1 · Absolute Beginner",
+    description: "Greetings, numbers, basic verbs, simple present. Start here if you're new.",
+    lessons: [
+      { order: 1, title: "Hello! Greetings & Introductions", goal: "Greet people, introduce yourself, ask someone's name", topic: "small-talk", focus: "verb 'to be', personal pronouns", estimatedMinutes: 15 },
+      { order: 2, title: "My Family & Daily Routine", goal: "Talk about your family and what you do every day", topic: "daily-life", focus: "simple present tense, family vocabulary", estimatedMinutes: 18 },
+      { order: 3, title: "Numbers, Time & Money", goal: "Say numbers, tell time, ask prices", topic: "shopping", focus: "numbers 1-100, asking 'how much', 'what time'", estimatedMinutes: 15 },
+      { order: 4, title: "Ordering Food & Drinks", goal: "Order food in a restaurant, ask for the bill", topic: "restaurant", focus: "'I would like', 'can I have', polite requests", estimatedMinutes: 16 },
+    ],
+  },
+  {
+    level: "A2",
+    title: "A2 · Elementary",
+    description: "Past tense, future plans, asking directions, short stories.",
+    lessons: [
+      { order: 1, title: "Yesterday I... (Past Tense)", goal: "Talk about what you did yesterday / last week", topic: "daily-life", focus: "past tense (regular & common irregular verbs)", estimatedMinutes: 18 },
+      { order: 2, title: "Asking for Directions", goal: "Ask for and give directions in a new city", topic: "travel", focus: "prepositions of place, imperatives", estimatedMinutes: 16 },
+      { order: 3, title: "Tomorrow I Will... (Future)", goal: "Talk about weekend plans and future intentions", topic: "small-talk", focus: "future tense ('going to' or language-specific future forms)", estimatedMinutes: 16 },
+      { order: 4, title: "Shopping & Comparing", goal: "Compare products, ask for sizes and colors", topic: "shopping", focus: "comparatives & superlatives", estimatedMinutes: 17 },
+    ],
+  },
+  {
+    level: "B1",
+    title: "B1 · Intermediate",
+    description: "Perfect tenses, conditionals, storytelling, opinions.",
+    lessons: [
+      { order: 1, title: "I Have Done... (Perfect Tenses)", goal: "Talk about life experiences and recent actions", topic: "daily-life", focus: "perfect tenses (present perfect or language-specific equivalent)", estimatedMinutes: 20 },
+      { order: 2, title: "If I Were You... (Conditionals)", goal: "Give advice, talk about hypothetical situations", topic: "free-talk", focus: "conditionals (if-clauses, hypothetical)", estimatedMinutes: 20 },
+      { order: 3, title: "At the Airport & Hotel", goal: "Handle check-in, security, and hotel conversations", topic: "travel", focus: "modal verbs (can, could, may, must), polite requests", estimatedMinutes: 18 },
+      { order: 4, title: "Job Interview Basics", goal: "Answer common interview questions confidently", topic: "interview", focus: "talking about strengths, weaknesses, experience", estimatedMinutes: 22 },
+    ],
+  },
+  {
+    level: "B2",
+    title: "B2 · Upper-Intermediate",
+    description: "Passive voice, reported speech, idioms, debates.",
+    lessons: [
+      { order: 1, title: "It Was Built In... (Passive Voice)", goal: "Describe processes and historical events", topic: "free-talk", focus: "passive voice or language-specific equivalent", estimatedMinutes: 22 },
+      { order: 2, title: "He Said That... (Reported Speech)", goal: "Report what someone else said", topic: "work", focus: "reported speech, backshift of tenses", estimatedMinutes: 20 },
+      { order: 3, title: "Idioms & Expressions at Work", goal: "Use common idioms in office conversations", topic: "work", focus: "idioms and fixed expressions", estimatedMinutes: 20 },
+      { order: 4, title: "Expressing Opinions & Debating", goal: "Agree, disagree, and argue a point politely", topic: "free-talk", focus: "linking words (however, although, on the other hand)", estimatedMinutes: 22 },
+    ],
+  },
+  {
+    level: "C1",
+    title: "C1 · Advanced",
+    description: "Subjunctive, inversion, advanced idioms, formal register, nuance.",
+    lessons: [
+      { order: 1, title: "Advanced Conditionals & Subjunctive", goal: "Use mixed and hypothetical conditionals naturally", topic: "free-talk", focus: "subjunctive mood, mixed conditionals, advanced hypotheticals", estimatedMinutes: 24 },
+      { order: 2, title: "Idioms, Metaphors & Wordplay", goal: "Understand and use advanced idioms and metaphors", topic: "free-talk", focus: "idioms, metaphors, figurative language", estimatedMinutes: 22 },
+      { order: 3, title: "Business Negotiations", goal: "Negotiate, persuade, and reach agreements", topic: "work", focus: "hedging, diplomatic language, persuasion", estimatedMinutes: 25 },
+      { order: 4, title: "Telling Stories Like a Native", goal: "Narrate personal stories with natural flow", topic: "free-talk", focus: "narrative tenses, discourse markers, dramatic pacing", estimatedMinutes: 24 },
+    ],
+  },
+  {
+    level: "C2",
+    title: "C2 · Mastery",
+    description: "Native-like fluency, humor, sarcasm, literary language.",
+    lessons: [
+      { order: 1, title: "Humor, Sarcasm & Wit", goal: "Understand and use humor, irony, and sarcasm", topic: "free-talk", focus: "sarcasm cues, double meanings, wordplay", estimatedMinutes: 26 },
+      { order: 2, title: "Academic & Formal Writing", goal: "Express complex ideas in formal academic register", topic: "work", focus: "nominalization, cleft sentences, formal vocabulary", estimatedMinutes: 28 },
+      { order: 3, title: "Cultural References & Slang", goal: "Understand cultural references and contemporary slang", topic: "free-talk", focus: "pop culture references, generational slang", estimatedMinutes: 25 },
+      { order: 4, title: "The Final Stretch · Free Mastery Talk", goal: "Hold a 10-minute unscripted conversation on any topic", topic: "free-talk", focus: "everything — fluency, accuracy, idiomatic range", estimatedMinutes: 30 },
+    ],
   },
 ];
+
+// Generate a curriculum for a language from the universal template.
+function buildCurriculum(meta: LangMeta): Curriculum {
+  const levels: CurriculumLevel[] = LEVEL_TEMPLATES.map((lvl) => ({
+    level: lvl.level,
+    title: lvl.title,
+    description: lvl.description,
+    nodes: lvl.lessons.map((lesson) => ({
+      id: `${meta.idPrefix}-${lvl.level.toLowerCase()}-${String(lesson.order).padStart(2, "0")}`,
+      language: meta.code,
+      level: lvl.level,
+      order: lesson.order,
+      title: lesson.title,
+      goal: lesson.goal,
+      topic: lesson.topic,
+      focus: lesson.focus,
+      estimatedMinutes: lesson.estimatedMinutes,
+    })),
+  }));
+  return {
+    language: meta.code,
+    name: meta.name,
+    flag: meta.flag,
+    levels,
+  };
+}
+
+export const CURRICULA: Curriculum[] = LANGUAGES_META.map(buildCurriculum);
+
+// Map of language code -> script note (used by lesson generator).
+export const SCRIPT_NOTES: Record<string, string> = Object.fromEntries(
+  LANGUAGES_META.map((m) => [m.code, m.scriptNote])
+);
 
 export function getCurriculum(language: string): Curriculum | undefined {
   return CURRICULA.find((c) => c.language === language);
