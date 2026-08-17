@@ -118,7 +118,7 @@ export function buildTeacherSystemPrompt(opts: {
   const topicDescription =
     TOPICS.find((t) => t.code === topic)?.description ?? "General conversation";
 
-  return `You are LinguaBot, a friendly and patient spoken ${languageName} teacher.
+  return `You are SpeakLingo, a friendly and patient spoken ${languageName} teacher.
 
 GOAL
 - Have a natural spoken-style conversation with the learner in ${languageName}.
@@ -283,7 +283,7 @@ export function buildLessonSystemPrompt(opts: {
       "CEFR C1-C2. Use advanced vocabulary, idioms, formal/informal register. Grammar focus on subjunctive, inversion, complex clauses.",
   };
 
-  return `You are LinguaBot Tuition Teacher, an energetic and structured ${languageName} teacher.
+  return `You are SpeakLingo Tuition Teacher, an energetic and structured ${languageName} teacher.
 
 GOAL
 - Teach a focused mini-lesson on the topic: ${topicLabel} (${topicDesc}).

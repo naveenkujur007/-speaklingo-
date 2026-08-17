@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LinguaBot - AI Spoken Language Teacher",
+  title: "SpeakLingo - AI Spoken Language Teacher",
   description:
     "Talk with an AI language teacher that catches your mistakes and helps you improve. Voice in, voice out, real-time corrections. Structured A1-C2 curriculum, spaced repetition, pronunciation scoring, role-play scenarios.",
   keywords: [
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
     "PWA",
     "installable",
   ],
-  authors: [{ name: "LinguaBot" }],
+  authors: [{ name: "SpeakLingo" }],
   // PWA manifest + icons
   manifest: "/manifest.json",
-  applicationName: "LinguaBot",
+  applicationName: "SpeakLingo",
   appleWebApp: {
     capable: true,
-    title: "LinguaBot",
+    title: "SpeakLingo",
     statusBarStyle: "default",
   },
   formatDetection: {
@@ -52,16 +52,16 @@ export const metadata: Metadata = {
     shortcut: ["/favicon-32.png"],
   },
   openGraph: {
-    title: "LinguaBot - AI Spoken Language Teacher",
+    title: "SpeakLingo - AI Spoken Language Teacher",
     description:
       "Talk with an AI teacher that catches your mistakes and helps you improve. Installable PWA - add to home screen on laptop & mobile.",
     url: "https://chat.z.ai",
-    siteName: "LinguaBot",
+    siteName: "SpeakLingo",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "LinguaBot - AI Spoken Language Teacher",
+    title: "SpeakLingo - AI Spoken Language Teacher",
     description:
       "Talk with an AI teacher that catches your mistakes and helps you improve.",
   },

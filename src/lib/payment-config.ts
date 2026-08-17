@@ -11,7 +11,7 @@ export const RAZORPAY_CONFIG = {
 export const UPI_CONFIG = {
   upiId: "naveenkujur077-3@okaxis",
   payeeName: "Naveen Kujur",
-  note: "VoxAI Premium Subscription",
+  note: "SpeakLingo Premium Subscription",
 };
 
 export function toSmallestUnit(amount: number, currency: string): number {

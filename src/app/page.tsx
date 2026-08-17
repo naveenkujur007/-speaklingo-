@@ -190,7 +190,7 @@ export default function Home() {
         const msg = e instanceof Error ? e.message : "Network error.";
         store.markError(placeholderId, msg);
         toast({
-          title: "Couldn't reach LinguaBot",
+          title: "Couldn't reach SpeakLingo",
           description: msg,
           variant: "destructive",
         });
@@ -406,7 +406,7 @@ export default function Home() {
               <Bot className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-base font-semibold leading-tight">LinguaBot</h1>
+              <h1 className="text-base font-semibold leading-tight">SpeakLingo</h1>
               <p className="text-[11px] text-stone-500 leading-tight">
                 Your AI Spoken Language Teacher
               </p>
@@ -447,7 +447,7 @@ export default function Home() {
                 <SheetHeader className="p-4 border-b border-stone-200">
                   <SheetTitle className="flex items-center gap-2">
                     <Bot className="h-4 w-4 text-emerald-500" />
-                    LinguaBot
+                    SpeakLingo
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="p-2 space-y-0.5">
@@ -484,7 +484,7 @@ export default function Home() {
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-emerald-500" />
-                    LinguaBot Panel
+                    SpeakLingo Panel
                   </SheetTitle>
                 </SheetHeader>
                 <div className="mt-4">{sidebarContent}</div>
@@ -535,7 +535,7 @@ export default function Home() {
       <footer className="mt-auto border-t border-stone-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-stone-500">
           <p>
-            <span className="font-medium text-stone-700">LinguaBot</span> · AI
+            <span className="font-medium text-stone-700">SpeakLingo</span> · AI
             Spoken Language Teacher · A1 → C2
           </p>
           <p>
@@ -572,7 +572,7 @@ function EmptyState({ language }: { language: string }) {
         Let&apos;s practice {lang?.name ?? "English"}!
       </h2>
       <p className="text-sm text-stone-500 max-w-md mb-4">
-        Tap the mic and start speaking, or type below. LinguaBot will reply in an
+        Tap the mic and start speaking, or type below. SpeakLingo will reply in an
         energetic voice, catch your mistakes, and explain them in Hinglish.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full max-w-xl mt-2">

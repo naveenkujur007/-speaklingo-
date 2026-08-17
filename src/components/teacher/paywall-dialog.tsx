@@ -106,7 +106,7 @@ export function PaywallDialog({
                 </div>
               </div>
               <DialogTitle className="text-center text-xl">
-                Unlock VoxAI Premium
+                Unlock SpeakLingo Premium
               </DialogTitle>
               <DialogDescription className="text-center">
                 You&apos;ve used {lessonsCompleted} of {FREE_LESSON_LIMIT} free lessons.

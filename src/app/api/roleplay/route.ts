@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     const langName =
       (language === "english" ? "English" : language) || "English";
 
-    const systemPrompt = `You are LinguaBot, role-playing as ${scenario.persona} in a ${langName} conversation.
+    const systemPrompt = `You are SpeakLingo, role-playing as ${scenario.persona} in a ${langName} conversation.
 
 SCENARIO
 - Title: ${scenario.title}

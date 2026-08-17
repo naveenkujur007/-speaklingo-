@@ -103,7 +103,7 @@ export function PWAInstallPrompt() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-stone-800">
-              Install LinguaBot
+              Install SpeakLingo
             </p>
             <p className="text-[11px] text-stone-500 truncate">
               Add to home screen · works offline-style
@@ -137,14 +137,14 @@ export function PWAInstallPrompt() {
         <button
           type="button"
           onClick={handleInstall}
-          aria-label="Install LinguaBot app"
+          aria-label="Install SpeakLingo app"
           className={cn(
             "fixed bottom-4 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full",
             "bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-all",
             "shadow-emerald-300/50 hover:scale-105 active:scale-95",
             "border-2 border-white"
           )}
-          title="Install LinguaBot"
+          title="Install SpeakLingo"
         >
           <Download className="h-5 w-5" />
         </button>
@@ -212,7 +212,7 @@ function ManualInstallModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-stone-800">
-                Install LinguaBot
+                Install SpeakLingo
               </h2>
               <p className="text-xs text-stone-500">
                 Open it anytime from your home screen
@@ -263,7 +263,7 @@ function ManualInstallModal({
                 Click it and choose <strong>Install</strong>.
               </li>
               <li>
-                LinguaBot will open in its own window and show up on your desktop
+                SpeakLingo will open in its own window and show up on your desktop
                 / taskbar.
               </li>
               <li className="text-stone-500 pt-1">
@@ -281,7 +281,7 @@ function ManualInstallModal({
                 <strong>Add to Home screen</strong>.
               </li>
               <li>
-                Confirm — LinguaBot will appear as an app icon on your phone.
+                Confirm — SpeakLingo will appear as an app icon on your phone.
               </li>
               <li className="text-stone-500 pt-1">
                 Or tap the button below if your browser supports it.
@@ -298,7 +298,7 @@ function ManualInstallModal({
                 Scroll and tap <strong>Add to Home Screen</strong>.
               </li>
               <li>
-                Tap <strong>Add</strong> — LinguaBot will appear as an app icon.
+                Tap <strong>Add</strong> — SpeakLingo will appear as an app icon.
               </li>
               <li className="text-stone-500 pt-1">
                 iOS Safari doesn&apos;t support a one-tap install button.

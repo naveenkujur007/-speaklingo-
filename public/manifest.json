@@ -1,6 +1,6 @@
 {
-  "name": "LinguaBot - AI Spoken Language Teacher",
-  "short_name": "LinguaBot",
+  "name": "SpeakLingo - AI Spoken Language Teacher",
+  "short_name": "SpeakLingo",
   "description": "Talk with an AI language teacher that catches your mistakes and helps you improve. Voice in, voice out, real-time corrections. Structured A1-C2 curriculum, spaced repetition, pronunciation scoring, role-play scenarios, achievements.",
   "start_url": "/",
   "scope": "/",

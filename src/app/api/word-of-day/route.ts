@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const langInfo = LANGUAGES.find((l) => l.code === language);
   const langName = langInfo?.name ?? "English";
 
-  const systemPrompt = `You are LinguaBot, an energetic ${langName} teacher. Pick ONE interesting and useful ${langName} word for the learner today. It should be a word that's commonly used but not too basic — something a learner would be excited to learn.
+  const systemPrompt = `You are SpeakLingo, an energetic ${langName} teacher. Pick ONE interesting and useful ${langName} word for the learner today. It should be a word that's commonly used but not too basic — something a learner would be excited to learn.
 
 Respond with ONLY a valid JSON object (no markdown, no fences, no commentary) with this exact shape:
 {"word":"...","pronunciation":"simple phonetic","partOfSpeech":"noun/verb/adj","meaning":"short meaning in Hindi/Hinglish","example":"a natural example sentence in ${langName}","exampleTranslation":"translation in Hindi/Hinglish","funFact":"one short interesting fact about this word or its usage in Hindi/Hinglish"}`;

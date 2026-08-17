@@ -96,7 +96,7 @@ export function MessageBubble({
         {isLoading ? (
           <div className="flex items-center gap-2 text-stone-500">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">LinguaBot is thinking...</span>
+            <span className="text-sm">SpeakLingo is thinking...</span>
           </div>
         ) : error ? (
           <div className="flex items-start gap-2 text-rose-600">
