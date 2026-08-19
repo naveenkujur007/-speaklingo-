@@ -16,6 +16,7 @@ import { PronunciationSection } from "@/components/sections/pronunciation-sectio
 import { RolePlaySection } from "@/components/sections/roleplay-section";
 import { TranslateSection } from "@/components/sections/translate-section";
 import { AchievementsSection } from "@/components/sections/achievements-section";
+import { PracticeSection } from "@/components/sections/practice-section";
 import { PaywallDialog } from "@/components/teacher/paywall-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -333,81 +334,7 @@ export default function Home() {
         return <AchievementsSection />;
       case "practice":
       default:
-        return (
-          <div className="flex flex-col rounded-xl bg-white border border-stone-200 shadow-sm overflow-hidden h-full min-h-[70vh] lg:min-h-[calc(100vh-180px)]">
-            <div
-              ref={scrollRef}
-              className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
-            >
-              {!hasMessages && <EmptyState language={app.language} />}
-              {store.messages.map((m) => (
-                <MessageBubble
-                  key={m.id}
-                  role={m.role}
-                  content={m.content}
-                  corrections={m.corrections}
-                  isLoading={m.isLoading}
-                  error={m.error}
-                  autoSpeak={app.autoSpeak}
-                  voice={app.voice}
-                  ttsSpeed={app.ttsSpeed}
-                />
-              ))}
-            </div>
-            <div className="border-t border-stone-200 bg-white p-3 sm:p-4">
-              <div className="flex items-end gap-3">
-                <div className="shrink-0">
-                  <VoiceButton
-                    disabled={store.isSending}
-                    onTranscribed={handleTranscribed}
-                    onError={handleVoiceError}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={`Type in ${currentLanguage?.name ?? "English"}, or tap the mic and speak...`}
-                    rows={2}
-                    className="resize-none bg-stone-50 border-stone-200 focus-visible:ring-emerald-300"
-                    disabled={store.isSending}
-                  />
-                  <div className="flex items-center justify-between mt-1.5">
-                    <p className="text-[11px] text-stone-400">
-                      <kbd className="px-1 py-0.5 bg-stone-100 rounded border border-stone-200 text-[10px]">Enter</kbd>{" "}
-                      send ·{" "}
-                      <kbd className="px-1 py-0.5 bg-stone-100 rounded border border-stone-200 text-[10px]">Shift+Enter</kbd>{" "}
-                      newline
-                    </p>
-                    <div className="flex items-center gap-1">
-                      {hasMessages && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleClearChat}
-                          className="text-stone-500 hover:text-rose-600"
-                        >
-                          <Eraser className="h-4 w-4 mr-1" />
-                          Clear
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        onClick={handleSend}
-                        disabled={!draft.trim() || store.isSending}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                      >
-                        <Send className="h-3.5 w-3.5 mr-1" />
-                        Send
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return <PracticeSection onStatsRefresh={triggerStatsRefresh} />;
     }
   };
 

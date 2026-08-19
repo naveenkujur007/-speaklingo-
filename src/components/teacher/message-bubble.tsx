@@ -4,6 +4,7 @@ import { Volume2, Loader2, AlertCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { CorrectionItem } from "@/lib/teacher-config";
+import { speakText } from "@/lib/speak";
 
 interface MessageBubbleProps {
   role: "user" | "assistant";
@@ -12,32 +13,10 @@ interface MessageBubbleProps {
   isLoading?: boolean;
   error?: string;
   autoSpeak?: boolean;
+  // Legacy props — speakText reads from the global app store now.
   voice?: string;
   ttsSpeed?: number;
   onSpeak?: (audio: HTMLAudioElement) => void;
-}
-
-// Plays TTS for the given text via /api/tts.
-async function playTTS(
-  text: string,
-  voice?: string,
-  speed?: number
-): Promise<HTMLAudioElement | null> {
-  try {
-    const res = await fetch("/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voice, speed }),
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    await audio.play();
-    return audio;
-  } catch {
-    return null;
-  }
 }
 
 export function MessageBubble({
@@ -47,8 +26,6 @@ export function MessageBubble({
   isLoading,
   error,
   autoSpeak,
-  voice,
-  ttsSpeed,
   onSpeak,
 }: MessageBubbleProps) {
   const isUser = role === "user";
@@ -56,31 +33,31 @@ export function MessageBubble({
   const spokeRef = useRef(false);
 
   // Auto-speak assistant replies once when they finalize.
+  // Uses speakText() which reads the global app store for engine/voice
+  // settings — native (Google/Microsoft) by default, falls back to cloud AI.
   useEffect(() => {
     if (isUser || !autoSpeak || !content || isLoading || spokeRef.current) {
       return;
     }
     spokeRef.current = true;
     let active = true;
-    // Defer the speaking-flag toggle to a microtask so we don't trigger
-    // a synchronous state update inside the effect body.
     queueMicrotask(() => {
       if (active) setSpeaking(true);
     });
-    playTTS(content, voice, ttsSpeed).finally(() => {
+    speakText(content).finally(() => {
       if (active) setSpeaking(false);
     });
     return () => {
       active = false;
     };
-  }, [isUser, content, isLoading, autoSpeak, voice, ttsSpeed]);
+  }, [isUser, content, isLoading, autoSpeak]);
 
   const handlePlay = async () => {
     if (!content) return;
     setSpeaking(true);
-    const audio = await playTTS(content, voice, ttsSpeed);
+    await speakText(content);
     setSpeaking(false);
-    if (audio && onSpeak) onSpeak(audio);
+    void onSpeak;
   };
 
   return (
@@ -132,7 +109,7 @@ export function MessageBubble({
               )}
             </div>
 
-            {/* Corrections block (only for user messages that had mistakes) */}
+            {/* Corrections block */}
             {!isUser && corrections && corrections.length > 0 && (
               <div className="mt-3 border-t border-stone-200 pt-3 space-y-2">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700">
