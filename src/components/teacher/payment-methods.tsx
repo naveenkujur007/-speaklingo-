@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
-  CreditCard, QrCode, Loader2, Check, Smartphone, Globe,
-  Shield, Copy, ExternalLink, DollarSign,
+  CreditCard, QrCode, Loader2, Check, Smartphone,
+  Shield, Copy, ExternalLink, DollarSign, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { detectPricing, type PricingPlan } from "@/lib/pricing";
 import { UPI_CONFIG, PAYPAL_CONFIG } from "@/lib/payment-config";
-import { setPaidSubscriber } from "@/lib/owner-mode";
 import { useMounted } from "@/hooks/use-mounted";
 import QRCode from "qrcode";
 
@@ -34,11 +34,16 @@ export function PaymentMethods({
   const [upiQrUrl, setUpiQrUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [copiedPaypal, setCopiedPaypal] = useState(false);
+  const [txnId, setTxnId] = useState("");
+  const [txnError, setTxnError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     if (mounted) queueMicrotask(() => setPlan(detectPricing()));
   }, [mounted]);
 
+  // Generate UPI QR code
   useEffect(() => {
     if (!plan || !mounted) return;
     const amount = billingCycle === "yearly" ? plan.yearly : plan.monthly;
@@ -58,6 +63,7 @@ export function PaymentMethods({
   if (!plan) return null;
 
   const isIndia = plan.countryCode === "IN";
+  // Always show UPI QR first (anyone can use UPI), PayPal for international
   const defaultMethod: Method = isIndia ? "upi-qr" : "paypal";
   const effectiveMethod = selectedMethod ?? defaultMethod;
   const priceDisplay =
@@ -69,9 +75,40 @@ export function PaymentMethods({
     window.open(link, "_blank");
   };
 
-  const handleConfirmPayment = () => {
-    setPaidSubscriber(true);
-    onPaymentSuccess();
+  // After payment, user enters transaction ID → stored as pending verification
+  const handleSubmitPayment = () => {
+    if (!txnId.trim() || txnId.trim().length < 6) {
+      setTxnError(true);
+      return;
+    }
+    setSubmitting(true);
+    setTxnError(false);
+
+    // Store payment as PENDING (not immediately premium).
+    // In a real app, this would go to server for verification.
+    // For now, store in localStorage as pending.
+    try {
+      const pendingPayments = JSON.parse(
+        localStorage.getItem("speaklingo_pending_payments") || "[]"
+      );
+      pendingPayments.push({
+        method: effectiveMethod,
+        amount: billingCycle === "yearly" ? plan.yearly : plan.monthly,
+        currency: plan.currency,
+        txnId: txnId.trim(),
+        timestamp: new Date().toISOString(),
+        status: "pending",
+      });
+      localStorage.setItem(
+        "speaklingo_pending_payments",
+        JSON.stringify(pendingPayments)
+      );
+    } catch {}
+
+    setTimeout(() => {
+      setSubmitting(false);
+      setPending(true);
+    }, 1000);
   };
 
   const copyText = async (text: string, type: "upi" | "paypal") => {
@@ -84,6 +121,45 @@ export function PaymentMethods({
       setTimeout(() => setCopiedPaypal(false), 2000);
     }
   };
+
+  // If payment is pending, show pending screen
+  if (pending) {
+    return (
+      <div className="space-y-4">
+        <Card className="p-6 bg-gradient-to-br from-amber-50 to-white border-amber-200 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-600 mx-auto mb-3">
+            <Clock className="h-8 w-8" />
+          </div>
+          <h3 className="text-lg font-bold text-stone-800 mb-2">
+            Payment Under Verification
+          </h3>
+          <p className="text-sm text-stone-600 mb-4">
+            We&apos;ve received your payment reference:{" "}
+            <span className="font-mono font-bold text-stone-800">
+              {txnId}
+            </span>
+          </p>
+          <p className="text-xs text-stone-500 mb-4">
+            Your premium will be activated within 24 hours after we verify your
+            payment. You&apos;ll get an email confirmation once verified.
+          </p>
+          <div className="bg-amber-50 rounded-lg p-3 text-left mb-4">
+            <p className="text-[11px] text-stone-600">
+              <strong>What happens next:</strong>
+            </p>
+            <ol className="text-[11px] text-stone-500 list-decimal list-inside mt-1 space-y-0.5">
+              <li>We verify your payment with your bank/UPI/PayPal</li>
+              <li>Premium unlocks automatically within 24 hours</li>
+              <li>You get full access to all features</li>
+            </ol>
+          </div>
+          <Button onClick={onBack} className="w-full" variant="outline">
+            Back to Home
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -106,73 +182,64 @@ export function PaymentMethods({
           Choose Payment Method
         </h3>
 
-        {/* UPI QR (India — RECOMMENDED) */}
-        {isIndia && (
-          <button
-            type="button"
-            onClick={() => setSelectedMethod("upi-qr")}
-            className={cn(
-              "w-full text-left p-3 rounded-lg border-2 transition-all flex items-center gap-3",
-              effectiveMethod === "upi-qr"
-                ? "border-emerald-500 bg-emerald-50"
-                : "border-stone-200 bg-white hover:border-emerald-300"
-            )}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-600 shrink-0">
-              <QrCode className="h-5 w-5" />
+        {/* UPI QR — ALWAYS VISIBLE (not just India) */}
+        <button
+          type="button"
+          onClick={() => setSelectedMethod("upi-qr")}
+          className={cn(
+            "w-full text-left p-3 rounded-lg border-2 transition-all flex items-center gap-3",
+            effectiveMethod === "upi-qr"
+              ? "border-emerald-500 bg-emerald-50"
+              : "border-stone-200 bg-white hover:border-emerald-300"
+          )}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-600 shrink-0">
+            <QrCode className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium text-stone-800">
+                Scan & Pay (UPI QR)
+              </span>
+              <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-medium">
+                RECOMMENDED
+              </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium text-stone-800">
-                  Scan & Pay (UPI QR)
-                </span>
-                <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-medium">
-                  RECOMMENDED
-                </span>
-              </div>
-              <div className="text-[11px] text-stone-500">
-                PhonePe, GPay, Paytm, BHIM · 0% fees · Direct to bank
-              </div>
+            <div className="text-[11px] text-stone-500">
+              PhonePe, GPay, Paytm, BHIM · 0% fees · Direct to bank
             </div>
-            {effectiveMethod === "upi-qr" && (
-              <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-            )}
-          </button>
-        )}
+          </div>
+          {effectiveMethod === "upi-qr" && (
+            <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+          )}
+        </button>
 
-        {/* PayPal (International — RECOMMENDED) */}
-        {!isIndia && (
-          <button
-            type="button"
-            onClick={() => setSelectedMethod("paypal")}
-            className={cn(
-              "w-full text-left p-3 rounded-lg border-2 transition-all flex items-center gap-3",
-              effectiveMethod === "paypal"
-                ? "border-emerald-500 bg-emerald-50"
-                : "border-stone-200 bg-white hover:border-emerald-300"
-            )}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-600 shrink-0 text-xs font-bold">
-              PP
+        {/* PayPal (International) */}
+        <button
+          type="button"
+          onClick={() => setSelectedMethod("paypal")}
+          className={cn(
+            "w-full text-left p-3 rounded-lg border-2 transition-all flex items-center gap-3",
+            effectiveMethod === "paypal"
+              ? "border-emerald-500 bg-emerald-50"
+              : "border-stone-200 bg-white hover:border-emerald-300"
+          )}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-600 shrink-0 text-xs font-bold">
+            PP
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-stone-800">PayPal</div>
+            <div className="text-[11px] text-stone-500">
+              Credit/Debit cards, PayPal balance · Global · ~3% fees
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium text-stone-800">PayPal</span>
-                <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-medium">
-                  RECOMMENDED
-                </span>
-              </div>
-              <div className="text-[11px] text-stone-500">
-                Credit/Debit cards, PayPal balance · Global · ~3% fees
-              </div>
-            </div>
-            {effectiveMethod === "paypal" && (
-              <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-            )}
-          </button>
-        )}
+          </div>
+          {effectiveMethod === "paypal" && (
+            <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+          )}
+        </button>
 
-        {/* Card / Razorpay (optional, secondary) */}
+        {/* Card / Razorpay (optional) */}
         <button
           type="button"
           onClick={() => setSelectedMethod("razorpay")}
@@ -249,17 +316,55 @@ export function PaymentMethods({
               </button>
             </div>
           </Card>
-          <Button
-            onClick={handleConfirmPayment}
-            className="w-full bg-violet-600 hover:bg-violet-700 text-white"
-            size="lg"
-          >
-            <Check className="h-4 w-4 mr-1" />
-            I've Paid — Activate Premium
-          </Button>
-          <p className="text-[10px] text-center text-stone-400">
-            After paying via UPI, tap above to activate. Verified within 24 hours.
-          </p>
+
+          {/* Transaction ID verification — no instant unlock */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-stone-700">
+              Step 2: Enter UPI Transaction ID
+            </p>
+            <p className="text-[11px] text-stone-500">
+              After paying, find the Transaction ID (UPI ref no.) in your UPI
+              app. Enter it below for verification.
+            </p>
+            <Input
+              placeholder="e.g. 4527XXXXXXXX"
+              value={txnId}
+              onChange={(e) => {
+                setTxnId(e.target.value);
+                setTxnError(false);
+              }}
+              className={cn(
+                "text-center font-mono",
+                txnError && "border-rose-400 focus-visible:ring-rose-300"
+              )}
+            />
+            {txnError && (
+              <p className="text-xs text-rose-600">
+                Please enter a valid transaction ID (at least 6 characters)
+              </p>
+            )}
+            <Button
+              onClick={handleSubmitPayment}
+              disabled={submitting || !txnId.trim()}
+              className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+              size="lg"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Submit Payment for Verification
+                </>
+              )}
+            </Button>
+            <p className="text-[10px] text-center text-stone-400">
+              Premium activates within 24 hours after verification.
+            </p>
+          </div>
         </div>
       )}
 
@@ -303,18 +408,48 @@ export function PaymentMethods({
             <ExternalLink className="h-4 w-4 mr-1" />
             Open PayPal to Pay {priceDisplay}
           </Button>
-          <Button
-            onClick={handleConfirmPayment}
-            variant="outline"
-            className="w-full"
-            size="lg"
-          >
-            <Check className="h-4 w-4 mr-1" />
-            I've Paid — Activate Premium
-          </Button>
-          <p className="text-[10px] text-center text-stone-400">
-            PayPal me pay karne ke baad "Activate Premium" dabao. Verified within 24 hours.
-          </p>
+
+          {/* Transaction ID verification */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-stone-700">
+              After payment, enter PayPal Transaction ID
+            </p>
+            <Input
+              placeholder="e.g. PAYID-XXXXXXXXX"
+              value={txnId}
+              onChange={(e) => {
+                setTxnId(e.target.value);
+                setTxnError(false);
+              }}
+              className={cn(
+                "text-center font-mono",
+                txnError && "border-rose-400 focus-visible:ring-rose-300"
+              )}
+            />
+            {txnError && (
+              <p className="text-xs text-rose-600">
+                Please enter a valid transaction ID
+              </p>
+            )}
+            <Button
+              onClick={handleSubmitPayment}
+              disabled={submitting || !txnId.trim()}
+              className="w-full bg-sky-600 hover:bg-sky-700 text-white"
+              size="lg"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Submit Payment for Verification
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -329,14 +464,46 @@ export function PaymentMethods({
             ⚠️ Razorpay requires KYC verification (₹199). UPI QR or PayPal is
             recommended for now.
           </p>
-          <Button
-            onClick={handleConfirmPayment}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            size="lg"
-          >
-            <CreditCard className="h-4 w-4 mr-1" />
-            Pay {priceDisplay} (Demo)
-          </Button>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-stone-700">
+              After paying via card/netbanking, enter Transaction ID
+            </p>
+            <Input
+              placeholder="e.g. pay_xxxxxxxx"
+              value={txnId}
+              onChange={(e) => {
+                setTxnId(e.target.value);
+                setTxnError(false);
+              }}
+              className={cn(
+                "text-center font-mono",
+                txnError && "border-rose-400 focus-visible:ring-rose-300"
+              )}
+            />
+            {txnError && (
+              <p className="text-xs text-rose-600">
+                Please enter a valid transaction ID
+              </p>
+            )}
+            <Button
+              onClick={handleSubmitPayment}
+              disabled={submitting || !txnId.trim()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              size="lg"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-1" />
+                  Submit Payment for Verification
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -348,7 +515,7 @@ export function PaymentMethods({
       {/* Trust badges */}
       <div className="flex items-center justify-center gap-3 text-[10px] text-stone-400 pt-2 border-t border-stone-100">
         <span className="flex items-center gap-0.5">
-          <Shield className="h-3 w-3" /> PCI DSS Compliant
+          <Shield className="h-3 w-3" /> Secure
         </span>
         <span>·</span>
         <span>7-day refund</span>
