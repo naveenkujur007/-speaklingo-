@@ -1,7 +1,9 @@
 // Owner mode: secret unlock code for free premium access.
-const OWNER_CODE = "VOXAI-OWNER-2026";
-const STORAGE_KEY = "voxai_owner_unlocked";
-const PAID_KEY = "voxai_paid_subscriber";
+// OWNER: enter this code once → premium unlocks FOREVER on your device.
+// Buyers don't know this code → they see the paywall.
+const OWNER_CODE = "SPEAKLINGO-OWNER-2026";
+const STORAGE_KEY = "speaklingo_owner_unlocked";
+const PAID_KEY = "speaklingo_paid_subscriber";
 
 export function isOwnerUnlocked(): boolean {
   if (typeof window === "undefined") return false;
