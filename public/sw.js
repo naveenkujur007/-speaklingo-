@@ -1,10 +1,9 @@
-// LinguaBot Service Worker
-// Provides basic offline support: caches the app shell so the installed
-// PWA opens instantly even without network. Dynamic API calls still go
-// to the network (with a network-first strategy so fresh data is always
-// preferred when online).
+// SpeakLingo Service Worker
+// Caches the app shell for fast startup + auto-updates for installed PWA users.
+// When you push new code to GitHub → Vercel auto-deploys → this SW detects
+// the new version and updates the cache automatically on the user's next visit.
 
-const CACHE_VERSION = "linguabot-v1";
+const CACHE_VERSION = "speaklingo-v1";
 const APP_SHELL = [
   "/",
   "/manifest.json",
@@ -14,20 +13,18 @@ const APP_SHELL = [
   "/favicon-32.png",
 ];
 
-// Install: pre-cache the app shell.
+// Install: pre-cache the app shell + skip waiting for instant update.
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_VERSION)
       .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
-      .catch(() => {
-        // Skip failing assets so install doesn't break.
-      })
+      .then(() => self.skipWaiting()) // ← Force activate new SW immediately
+      .catch(() => {})
   );
 });
 
-// Activate: clean up old caches.
+// Activate: clean up old caches + claim all clients immediately.
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
@@ -39,29 +36,20 @@ self.addEventListener("activate", (event) => {
             .map((k) => caches.delete(k))
         )
       )
-      .then(() => self.clients.claim())
+      .then(() => self.clients.claim()) // ← Take control of all open tabs
   );
 });
 
-// Fetch strategy:
-// - For navigation requests (HTML pages): network-first, fall back to cached shell.
-// - For static assets (same-origin): stale-while-revalidate.
-// - For API calls (/api/*): network-only (always fresh).
+// Fetch: network-first for navigations, stale-while-revalidate for assets.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-
-  // Skip non-GET requests.
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
-
-  // Don't intercept cross-origin requests (analytics, fonts, etc.)
   if (url.origin !== self.location.origin) return;
-
-  // API calls: always go to network.
   if (url.pathname.startsWith("/api/")) return;
 
-  // Navigations: network-first, fall back to cached "/".
+  // Navigations: network-first, fall back to cached.
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req)
