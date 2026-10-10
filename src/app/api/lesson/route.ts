@@ -81,13 +81,12 @@ export async function POST(req: NextRequest) {
     });
 
     const zai = await getZAI();
+
+    // Single attempt with concise prompt — no retries for speed
     const completion = await zai.chat.completions.create({
       messages: [
         { role: "assistant", content: systemPrompt } as any,
-        {
-          role: "user",
-          content: `Generate today's ${lang} lesson on "${tp}" for ${lvl} level. Output ONLY the JSON lesson object.`,
-        } as any,
+        { role: "user", content: `Generate the lesson now. Output ONLY JSON.` } as any,
       ],
       thinking: { type: "disabled" },
     });
@@ -95,27 +94,30 @@ export async function POST(req: NextRequest) {
     const raw = completion.choices[0]?.message?.content ?? "";
     const lesson = extractLessonJson(raw);
 
-    if (!lesson) {
-      return NextResponse.json(
-        { error: "Teacher couldn't generate a valid lesson. Please try again." },
-        { status: 502 }
-      );
+    if (!lesson || (!lesson.vocabulary?.length && !lesson.quiz?.length)) {
+      // Return a minimal fallback lesson immediately — don't retry
+      const fallback: Lesson = {
+        language: lang, level: lvl, topic: tp,
+        title: `${tp} lesson`,
+        intro: `Welcome to today's ${lang} lesson!`,
+        vocabulary: [], grammar: { title: "Grammar", rule: "", structure: "", examples: [], commonMistakes: [] },
+        phrases: [], sentenceBuilding: [], conversation: [], pronunciation: [], culture: [],
+        quiz: [], homework: "Practice what you've learned today!",
+      };
+      return NextResponse.json({ lesson: fallback, cached: false, warning: "Try regenerating for full content." });
     }
 
-    // Defensive: normalize arrays so the UI never crashes on missing fields.
+    // Defensive: normalize all arrays so UI never crashes
     lesson.vocabulary = Array.isArray(lesson.vocabulary) ? lesson.vocabulary : [];
     lesson.phrases = Array.isArray(lesson.phrases) ? lesson.phrases : [];
     lesson.quiz = Array.isArray(lesson.quiz) ? lesson.quiz : [];
-    lesson.grammar = lesson.grammar ?? {
-      title: "Grammar",
-      rule: "",
-      structure: "",
-      examples: [],
-      commonMistake: "",
-    };
-    lesson.grammar.examples = Array.isArray(lesson.grammar.examples)
-      ? lesson.grammar.examples
-      : [];
+    lesson.sentenceBuilding = Array.isArray(lesson.sentenceBuilding) ? lesson.sentenceBuilding : [];
+    lesson.conversation = Array.isArray(lesson.conversation) ? lesson.conversation : [];
+    lesson.pronunciation = Array.isArray(lesson.pronunciation) ? lesson.pronunciation : [];
+    lesson.culture = Array.isArray(lesson.culture) ? lesson.culture : [];
+    lesson.grammar = lesson.grammar ?? { title: "Grammar", rule: "", structure: "", examples: [], commonMistakes: [] };
+    lesson.grammar.examples = Array.isArray(lesson.grammar.examples) ? lesson.grammar.examples : [];
+    lesson.grammar.commonMistakes = Array.isArray(lesson.grammar.commonMistakes) ? lesson.grammar.commonMistakes : [];
 
     const saved = await db.lesson.create({
       data: {

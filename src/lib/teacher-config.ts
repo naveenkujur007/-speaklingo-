@@ -283,56 +283,99 @@ export function buildLessonSystemPrompt(opts: {
       "CEFR C1-C2. Use advanced vocabulary, idioms, formal/informal register. Grammar focus on subjunctive, inversion, complex clauses.",
   };
 
-  return `You are SpeakLingo Tuition Teacher, an energetic and structured ${languageName} teacher.
+  return `You are a ${languageName} teacher. Level: ${level}. Topic: ${topicLabel}. Meanings in ${hintLanguage}.
 
-GOAL
-- Teach a focused mini-lesson on the topic: ${topicLabel} (${topicDesc}).
-- Target level: ${level}. ${levelGuide[level]}
-- Hint language (for meanings/translations/explanations): ${hintLanguage}.
+Output ONLY valid JSON (no markdown). Be SHORT for speed.
+{"language":"${language}","level":"${level}","topic":"${topic}","title":"X","intro":"X",
+"vocabulary":[{"word":"X","pronunciation":"X","partOfSpeech":"X","meaning":"X","example":"X","exampleTranslation":"X"}],
+"grammar":{"title":"X","rule":"X","structure":"X","examples":["s1","s2","s3"],"commonMistakes":["m1"]},
+"phrases":[{"phrase":"X","meaning":"X","when":"X"}],
+"sentenceBuilding":[{"instruction":"X","parts":[["a","b","c"],["a","b","c"]],"correctAnswer":["0","1"],"fullSentence":"X","translation":"X"}],
+"conversation":[{"speaker":"A","line":"X","translation":"X"}],
+"pronunciation":[{"word":"X","tip":"X","commonError":"X"}],
+"culture":[{"title":"X","note":"X"}],
+"quiz":[{"question":"X","options":["a","b","c","d"],"answer":0,"explanation":"X"}],
+"homework":"X"}
 
-LESSON STRUCTURE
-Build a complete lesson with these parts:
-1. intro: A warm 1-2 sentence greeting in ${languageName} (+ tiny ${hintLanguage} hint if needed) that sets up today's topic.
-2. vocabulary: 5 new words/phrases related to the topic. Each item: word, pronunciation (simple phonetic), partOfSpeech, meaning (in ${hintLanguage}), example sentence (in ${languageName}), exampleTranslation (in ${hintLanguage}).
-3. grammar: ONE key grammar point useful for this topic. Include title, rule (in ${hintLanguage}), structure pattern, 2-3 examples (in ${languageName}), and one commonMistake learners make (with the fix).
-4. phrases: 4 useful survival phrases for this topic. Each: phrase (in ${languageName}), meaning (in ${hintLanguage}), when (when to use it, in ${hintLanguage}).
-5. quiz: 3 multiple-choice questions testing today's vocab/grammar. Each: question, 4 options, answer (0-3 index), explanation (in ${hintLanguage}).
-6. homework: One small speaking/writing practice task the learner can do right now.
-
-OUTPUT FORMAT (STRICT JSON)
-Respond with ONLY a valid JSON object matching the Lesson interface above. No markdown, no code fences, no commentary before or after. Use double quotes. No trailing commas.
-
-Example shape:
-{"language":"english","level":"beginner","topic":"daily-life","title":"...","intro":"...","vocabulary":[{...}],"grammar":{...},"phrases":[{...}],"quiz":[{...}],"homework":"..."}
-
-RULES
-- All example/phrase/quiz-option text in the ${languageName} being learned.
-- All meaning/translation/explanation text in ${hintLanguage}.
-- Keep examples natural and short.
-- Vocabulary words must be relevant to the topic and at the right level.
-- Quiz options must be plausible (no obvious joke answers).
-- Output MUST be parseable by JSON.parse.`;
+Counts: vocabulary:5, grammar examples:3, commonMistakes:1, phrases:4, sentenceBuilding:2, conversation:4, pronunciation:2, culture:1, quiz:3.
+Keep each field SHORT. Target text in ${languageName}, meanings in ${hintLanguage}.`;
 }
 
-// Best-effort JSON extraction from an LLM response that may include
-// accidental prose or markdown fences around the JSON.
+// Best-effort JSON extraction + repair from an LLM response.
+// Handles: markdown fences, truncated JSON, missing brackets, etc.
 export function extractLessonJson(raw: string): Lesson | null {
   let text = raw.trim();
   // Strip markdown fences
   text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+
   // Try direct parse first
   try {
     return JSON.parse(text) as Lesson;
-  } catch {
-    // Try to find the first {...} block
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]) as Lesson;
-      } catch {
-        return null;
-      }
-    }
-    return null;
+  } catch {}
+
+  // Try to find the first {...} block
+  const match = text.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      return JSON.parse(match[0]) as Lesson;
+    } catch {}
   }
+
+  // JSON repair: add missing closing brackets
+  let repaired = text;
+  // If starts with { but doesn't end with }, add }
+  if (repaired.startsWith("{") && !repaired.endsWith("}")) {
+    // Count open vs close braces
+    const opens = (repaired.match(/\{/g) || []).length;
+    const closes = (repaired.match(/\}/g) || []).length;
+    const openBrackets = (repaired.match(/\[/g) || []).length;
+    const closeBrackets = (repaired.match(/\]/g) || []).length;
+    // Add missing closing brackets
+    repaired += "]".repeat(Math.max(0, closeBrackets - openBrackets));
+    repaired += "}".repeat(Math.max(0, closes - opens));
+    // Try again
+    try {
+      return JSON.parse(repaired) as Lesson;
+    } catch {}
+
+    // Try trimming to last valid position
+    // Remove trailing incomplete entries (after last complete })
+    const lastComplete = repaired.lastIndexOf('}');
+    if (lastComplete > 100) {
+      const truncated = repaired.slice(0, lastComplete + 1);
+      try {
+        return JSON.parse(truncated) as Lesson;
+      } catch {}
+    }
+  }
+
+  // Last resort: try to extract just vocabulary and quiz
+  // This handles cases where the JSON is partially valid
+  try {
+    const vocabMatch = text.match(/"vocabulary"\s*:\s*(\[[\s\S]*?\])/);
+    const quizMatch = text.match(/"quiz"\s*:\s*(\[[\s\S]*?\])/);
+    const titleMatch = text.match(/"title"\s*:\s*"([^"]*)"/);
+    const introMatch = text.match(/"intro"\s*:\s*"([^"]*)"/);
+    if (vocabMatch || quizMatch) {
+      const partial: any = {
+        language: "english",
+        level: "beginner",
+        topic: "general",
+        title: titleMatch ? titleMatch[1] : "Lesson",
+        intro: introMatch ? introMatch[1] : "Welcome to today's lesson!",
+        vocabulary: vocabMatch ? JSON.parse(vocabMatch[1]) : [],
+        grammar: { title: "Grammar", rule: "", structure: "", examples: [], commonMistakes: [] },
+        phrases: [],
+        sentenceBuilding: [],
+        conversation: [],
+        pronunciation: [],
+        culture: [],
+        quiz: quizMatch ? JSON.parse(quizMatch[1]) : [],
+        homework: "Practice today's vocabulary!",
+      };
+      return partial as Lesson;
+    }
+  } catch {}
+
+  return null;
 }
