@@ -17,6 +17,10 @@ import { RolePlaySection } from "@/components/sections/roleplay-section";
 import { TranslateSection } from "@/components/sections/translate-section";
 import { AchievementsSection } from "@/components/sections/achievements-section";
 import { PracticeSection } from "@/components/sections/practice-section";
+import { LiveTranslateSection } from "@/components/sections/live-translate-section";
+import { VocabVaultSection } from "@/components/sections/vocab-vault-section";
+import { DictionarySection } from "@/components/sections/dictionary-section";
+import { BackToHome } from "@/components/teacher/back-button";
 import { PaywallDialog } from "@/components/teacher/paywall-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,6 +43,9 @@ import {
   Sparkles,
   Mic,
   ArrowLeftRight,
+  Languages,
+  Library,
+  BookMarked,
   Trophy,
   GraduationCap,
   BarChart3,
@@ -251,6 +258,9 @@ export default function Home() {
     { code: "review", label: "Review", icon: <Sparkles className="h-4 w-4" /> },
     { code: "pronunciation", label: "Pronunciation", icon: <Mic className="h-4 w-4" /> },
     { code: "roleplay", label: "Role-Play", icon: <Sparkles className="h-4 w-4" /> },
+    { code: "live-translate", label: "Live Translate", icon: <Languages className="h-4 w-4" /> },
+    { code: "vocab-vault", label: "Vocab Vault", icon: <Library className="h-4 w-4" /> },
+    { code: "dictionary", label: "Dictionary", icon: <BookMarked className="h-4 w-4" /> },
     { code: "translate", label: "Translator", icon: <ArrowLeftRight className="h-4 w-4" /> },
     { code: "achievements", label: "Badges", icon: <Trophy className="h-4 w-4" /> },
   ];
@@ -316,25 +326,79 @@ export default function Home() {
     </Tabs>
   );
 
+  const goHome = () => app.setSection("home");
+
   const renderSection = () => {
     switch (app.section) {
       case "home":
         return <HomeSection />;
       case "curriculum":
-        return <CurriculumSection />;
-      case "review":
-        return <ReviewSection />;
-      case "pronunciation":
-        return <PronunciationSection />;
-      case "roleplay":
-        return <RolePlaySection />;
-      case "translate":
-        return <TranslateSection />;
-      case "achievements":
-        return <AchievementsSection />;
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <CurriculumSection />
+          </div>
+        );
       case "practice":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <PracticeSection onStatsRefresh={triggerStatsRefresh} />
+          </div>
+        );
+      case "review":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <ReviewSection />
+          </div>
+        );
+      case "pronunciation":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <PronunciationSection />
+          </div>
+        );
+      case "roleplay":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <RolePlaySection />
+          </div>
+        );
+      case "live-translate":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <LiveTranslateSection />
+          </div>
+        );
+      case "vocab-vault":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <VocabVaultSection />
+          </div>
+        );
+      case "dictionary":
+        return <DictionarySection onBack={goHome} />;
+      case "translate":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <TranslateSection />
+          </div>
+        );
+      case "achievements":
+        return (
+          <div>
+            <BackToHome onBack={goHome} />
+            <AchievementsSection />
+          </div>
+        );
       default:
-        return <PracticeSection onStatsRefresh={triggerStatsRefresh} />;
+        return <HomeSection />;
     }
   };
 

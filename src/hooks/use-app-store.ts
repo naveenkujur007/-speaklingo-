@@ -11,6 +11,9 @@ export type Section =
   | "review"
   | "pronunciation"
   | "roleplay"
+  | "live-translate"
+  | "vocab-vault"
+  | "dictionary"
   | "translate"
   | "achievements";
 
