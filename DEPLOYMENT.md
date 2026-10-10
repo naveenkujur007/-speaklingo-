@@ -1,93 +1,181 @@
-# 🚀 SpeakLingo Deployment Guide (FREE — 0 ₹)
+# 🚀 SpeakLingo Deployment Guide
 
-## Tumhe bas 3 cheezein chahiye:
+Complete step-by-step guide to deploy SpeakLingo from scratch.
 
-### 1. GitHub Account (free)
-- https://github.com → Sign up (agar nahi hai)
-- Tumhara GitHub username chahiye
+## 📋 Prerequisites
 
-### 2. Vercel Account (free)
-- https://vercel.com → "Login with GitHub"
-- Direct GitHub se login karo
+1. **GitHub account** — https://github.com
+2. **Vercel account** — https://vercel.com (free)
+3. **Supabase account** — https://supabase.com (free)
 
-### 3. (Optional) Supabase Account (free)
-- Sirf agar database chahiye (lessons cache, progress save)
-- Bina Supabase ke bhi app chalega — lessons AI se fresh generate hote hain
+All three accounts can be created with GitHub login — no separate passwords.
 
 ---
 
-## 📋 Steps (5 minute me live):
+## Step 1: Create Supabase Project (3 min)
 
-### Step 1: GitHub pe code push karo
+1. Go to https://supabase.com → **"Start your project"** → **"Sign up with GitHub"**
+2. Create a new project:
+   - **Name:** `speaklingo`
+   - **Database Password:** Generate strong password (NOTE IT DOWN somewhere safe — Supabase can't recover it)
+   - **Region:** `Singapore (ap-southeast-1)` ⚠️ **must be Singapore for this repo's hardcoded URL**
+   - **Plan:** Free
+3. Wait 2-3 min for provisioning to complete
+4. Once ready, go to **Project Settings** (⚙️ gear, bottom-left) → **API**:
+   - Copy **Project URL** → e.g., `https://dynqrmcwhbkcvdsvyjal.supabase.co`
+   - Copy **Project API keys** → both `publishable` and `secret` keys
 
-Tumhara code already git me committed hai. Bas GitHub pe push karna hai:
+> **Note:** For other regions (Mumbai, US, EU), the database URL in `.env` will differ. Use the Connection String from Supabase Dashboard → Project Settings → Database.
+
+---
+
+## Step 2: Create GitHub Repo (1 min)
+
+If you're starting fresh (no existing repo):
+
+1. Go to https://github.com/new
+2. **Repository name:** `-speaklingo-` (with dashes — matches existing)
+3. **Visibility:** Private (recommended) or Public
+4. **Initialize:** Don't tick anything (we'll push existing code)
+5. **Create repository** — copy the URL, e.g., `https://github.com/yourname/-speaklingo-.git`
+
+---
+
+## Step 3: Push Code to GitHub (2 min)
 
 ```bash
-# 1. GitHub pe naya repo banao (browser me):
-#    https://github.com/new
-#    Name: speaklingo
-#    Private ya Public (jo chaaho)
-#    "Create repository"
-
-# 2. Terminal me ye commands chalao:
-cd /home/z/my-project
-git remote add origin https://github.com/TUMHARA-USERNAME/speaklingo.git
-git branch -M main
+cd /path/to/speaklingo
+git remote add origin https://github.com/YOURNAME/-speaklingo-.git
 git push -u origin main
 ```
 
-### Step 2: Vercel pe deploy karo
-
-1. https://vercel.com → "Login with GitHub"
-2. "New Project" → "Import" your `speaklingo` repo
-3. Framework: **Next.js** (auto-detected)
-4. Environment Variables (optional):
-   - `DATABASE_URL` = (Supabase URL agar database chahiye, warna chhodo)
-5. **"Deploy"** dabao → 2 minute me LIVE! ✅
-
-### Step 3: URL milega
-- Free subdomain: `speaklingo.vercel.app`
-- Ye link share karo WhatsApp/Instagram/YouTube pe!
-
-### Step 4: Custom domain (jab paisa ho)
-1. `speaklingo.app` kharido (GoDaddy/Namecheap, ₹800/year)
-2. Vercel → Project → Settings → Domains → Add domain
-3. DNS update karo (Vercel instructions dega)
-4. Free SSL automatic!
+If prompted for credentials, generate a GitHub Personal Access Token (PAT):
+- GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+- Generate new token → Tick `repo` scope → Generate
+- Use the token as your password when git prompts
 
 ---
 
-## 🔄 Update Flow (jab code badlo):
+## Step 4: Create .env File Locally (1 min)
 
-1. Code change karo
-2. `git add -A && git commit -m "update" && git push`
-3. Vercel auto-build (2 min) → LIVE!
-4. PWA users ko auto-update milta hai (service worker `skipWaiting`)
+```bash
+cp .env.example .env
+```
 
----
+Edit `.env` with the values from Step 1:
 
-## 💰 Cost:
+```env
+DATABASE_URL="postgresql://postgres.[YOUR-REF]:[URL-ENCODED-PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://postgres.[YOUR-REF]:[URL-ENCODED-PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+NEXT_PUBLIC_SUPABASE_URL="https://[YOUR-REF].supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="sb_publishable_XXXXXXX"
+SUPABASE_SERVICE_ROLE_KEY="sb_secret_XXXXXXX"
+```
 
-| Item | Cost |
-|------|------|
-| GitHub | FREE |
-| Vercel hosting | FREE (100GB/mo) |
-| Vercel subdomain | FREE |
-| SSL | FREE |
-| Supabase (optional) | FREE (500MB) |
-| Custom domain | ₹800/year (optional) |
-| **Total (without domain)** | **₹0** |
+**Important:** URL-encode the password (e.g., `@` → `%40`, `/` → `%2F`).
 
 ---
 
-## ⚠️ Database Note:
+## Step 5: Create Tables on Supabase (30 sec)
 
-- **Bina database**: App chalega, lessons AI se fresh generate hote hain, progress localStorage me
-- **Supabase ke saath**: Lessons cache hote hain (faster), progress server-side save hota hai
+```bash
+npm install
+npm run db:push
+```
 
-Supabase setup (optional):
-1. https://supabase.com → free account
-2. New project banao
-3. Settings → Database → Connection string copy
-4. Vercel environment variables me `DATABASE_URL` set karo
-5. `bun run db:push` (local se schema push)
+This runs `prisma db push` which reads `prisma/schema.prisma` and creates all 10 tables on Supabase.
+
+**Verify:** Go to Supabase Dashboard → **Table Editor** — you should see 10 tables (Session, Message, Mistake, Lesson, LearnedItem, Review, Progress, Streak, Achievement, PronunciationAttempt).
+
+---
+
+## Step 6: Test Locally (30 sec)
+
+```bash
+npm run dev
+```
+
+Open http://localhost:3000 → try a lesson → check Supabase **Table Editor** → data should appear in `Session` table.
+
+---
+
+## Step 7: Deploy to Vercel (3 min)
+
+1. Go to https://vercel.com → **Login with GitHub**
+2. **"Add New Project"** → import `-speaklingo-` repo
+3. **Configure:**
+   - Framework Preset: **Next.js** (auto-detected)
+   - Build Command: `next build` (default)
+   - Install Command: `npm install` (default)
+4. **Environment Variables** — add ALL 5 (same as your `.env`):
+   - `DATABASE_URL`
+   - `DIRECT_URL`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   
+   ⚠️ Tick **Production**, **Preview**, **Development** for each variable.
+5. **Deploy** — wait 2-3 min for build
+6. Live at `https://-speaklingo-.vercel.app` (or whatever name Vercel gives)
+
+---
+
+## Step 8: Verify Production (1 min)
+
+1. Open your Vercel URL
+2. Login / try a lesson / save a word
+3. Check Supabase **Table Editor** → data should appear
+
+If anything fails:
+- Vercel dashboard → **Logs** → check for errors
+- Common issues: missing env var, wrong DATABASE_URL, password not URL-encoded
+
+---
+
+## 🔄 Updating the App
+
+Every `git push origin main` triggers automatic Vercel redeploy. No manual action needed.
+
+```bash
+# Make changes
+git add .
+git commit -m "your message"
+git push origin main
+# → Vercel auto-deploys in 2-3 min
+```
+
+---
+
+## 🆘 Troubleshooting
+
+### "Database connection failed"
+- Verify `DATABASE_URL` is correct in Vercel env vars
+- Password must be URL-encoded (e.g., `@` → `%40`)
+- Region in URL must match your Supabase project region
+
+### "Tables don't exist"
+- Run `npm run db:push` locally — this creates tables on Supabase
+- Verify in Supabase **Table Editor**
+
+### "Build fails on Vercel"
+- Check Vercel logs
+- Common: missing env var, TS error (we set `ignoreBuildErrors: true` so should not happen)
+- Try running `npm run build` locally first
+
+### "Service worker / PWA not updating"
+- Service worker has `skipWaiting` — should auto-update on next visit
+- Hard refresh: Ctrl+Shift+R / Cmd+Shift+R
+- Check `/sw.js` is being served with `no-cache` header (already configured in `vercel.json`)
+
+### "App is slow"
+- First lesson generation takes ~12s (LLM call)
+- Cached lessons load in 0.01s
+- Word of Day cached by language + date
+- Vocab Vault cached by language + category
+
+---
+
+## 📞 Need Help?
+
+- GitHub Issues: https://github.com/naveenkujur007/-speaklingo-/issues
+- Email: naveenkujur077@gmail.com
