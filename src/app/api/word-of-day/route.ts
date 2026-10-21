@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import ZAI from "z-ai-web-dev-sdk";
+import { getZAI } from "@/lib/zai-server";
 import { LANGUAGES, type Difficulty } from "@/lib/teacher-config";
 import { cacheGet, cacheSet, cacheKey } from "@/lib/cache";
 
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZAI() {
-  if (!zaiInstance) zaiInstance = await ZAI.create();
-  return zaiInstance;
-}
+
 
 interface WordOfDay {
   word: string;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import ZAI from "z-ai-web-dev-sdk";
+import { getZAI } from "@/lib/zai-server";
 import {
   buildTeacherSystemPrompt,
   parseTeacherOutput,
@@ -8,15 +8,6 @@ import {
   type Difficulty,
 } from "@/lib/teacher-config";
 import { touchStreak } from "@/app/api/curriculum/route";
-
-// In-memory SDK singleton (re-use across requests).
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
 
 interface ChatRequestBody {
   sessionId?: string;

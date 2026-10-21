@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import ZAI from "z-ai-web-dev-sdk";
+import { getZAI } from "@/lib/zai-server";
 import { scorePronunciation } from "@/lib/pronunciation";
 import { touchStreak } from "@/app/api/curriculum/route";
 
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZAI() {
-  if (!zaiInstance) zaiInstance = await ZAI.create();
-  return zaiInstance;
-}
+
 
 // POST /api/pronunciation
 // FormData with: audio (blob), targetText (string), language (string)

@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import ZAI from "z-ai-web-dev-sdk";
+import { getZAI } from "@/lib/zai-server";
 import { LANGUAGES } from "@/lib/teacher-config";
 import { withCache, cacheKey } from "@/lib/cache";
 
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZAI() {
-  if (!zaiInstance) zaiInstance = await ZAI.create();
-  return zaiInstance;
-}
+
 
 // Categories for the vocabulary vault
 export const VOCAB_CATEGORIES = [

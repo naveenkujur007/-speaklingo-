@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import ZAI from "z-ai-web-dev-sdk";
+import { getZAI } from "@/lib/zai-server";
 import {
   buildLessonSystemPrompt,
   extractLessonJson,
@@ -8,13 +8,7 @@ import {
   type Lesson,
 } from "@/lib/teacher-config";
 
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
+
 
 // GET /api/lesson?language=english&level=beginner&topic=daily-life
 // Returns the most recent saved lesson for the given config, or null.
