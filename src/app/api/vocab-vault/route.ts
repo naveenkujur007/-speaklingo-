@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import ZAI from "z-ai-web-dev-sdk";
 import { LANGUAGES } from "@/lib/teacher-config";
+import { withCache, cacheKey } from "@/lib/cache";
 
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
 async function getZAI() {
@@ -34,8 +35,8 @@ export const VOCAB_CATEGORIES = [
 
 // POST /api/vocab-vault
 // Body: { language, category, hintLanguage }
-// Returns 20-30 words for the given category in the target language
-// with meanings in the hint language.
+// Returns 20-30 words for the given category in the target language.
+// Cached aggressively (24h) — same language+category+hint returns instantly.
 export async function POST(req: NextRequest) {
   try {
     const { language, category, hintLanguage } = await req.json();
@@ -43,12 +44,15 @@ export async function POST(req: NextRequest) {
     const cat = category || "greetings";
     const hint = hintLanguage || "English";
 
-    const langInfo = LANGUAGES.find((l) => l.code === lang);
-    const langName = langInfo?.name ?? "English";
-    const catInfo = VOCAB_CATEGORIES.find((c) => c.code === cat);
-    const catLabel = catInfo?.label ?? cat;
+    const key = cacheKey("vocab-vault", lang, cat, hint);
 
-    const systemPrompt = `You are a vocabulary teacher. Generate 25 words/phrases for the category "${catLabel}" in ${langName}.
+    const { value, cached } = await withCache(key, async () => {
+      const langInfo = LANGUAGES.find((l) => l.code === lang);
+      const langName = langInfo?.name ?? "English";
+      const catInfo = VOCAB_CATEGORIES.find((c) => c.code === cat);
+      const catLabel = catInfo?.label ?? cat;
+
+      const systemPrompt = `You are a vocabulary teacher. Generate 25 words/phrases for the category "${catLabel}" in ${langName}.
 
 Output ONLY a valid JSON array. Each item: {"word":"X","pronunciation":"X","meaning":"X"}
 - word: in ${langName} (use native script)
@@ -61,38 +65,44 @@ Rules:
 - No markdown, no code fences
 - Output starts with [ and ends with ]`;
 
-    const zai = await getZAI();
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: "assistant", content: systemPrompt } as any,
-        { role: "user", content: `Generate 25 ${catLabel} words in ${langName}.` } as any,
-      ],
-      thinking: { type: "disabled" },
-    });
+      const zai = await getZAI();
+      const completion = await zai.chat.completions.create({
+        messages: [
+          { role: "assistant", content: systemPrompt } as any,
+          { role: "user", content: `Generate 25 ${catLabel} words in ${langName}.` } as any,
+        ],
+        thinking: { type: "disabled" },
+      });
 
-    const raw = completion.choices[0]?.message?.content ?? "";
-    let text = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+      const raw = completion.choices[0]?.message?.content ?? "";
+      let text = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
 
-    let words: { word: string; pronunciation: string; meaning: string }[];
-    try {
-      words = JSON.parse(text);
-    } catch {
-      const m = text.match(/\[[\s\S]*\]/);
-      if (m) {
-        try {
-          words = JSON.parse(m[0]);
-        } catch {
+      let words: { word: string; pronunciation: string; meaning: string }[];
+      try {
+        words = JSON.parse(text);
+      } catch {
+        const m = text.match(/\[[\s\S]*\]/);
+        if (m) {
+          try {
+            words = JSON.parse(m[0]);
+          } catch {
+            words = [];
+          }
+        } else {
           words = [];
         }
-      } else {
-        words = [];
       }
-    }
+      return {
+        category: cat,
+        categoryLabel: catLabel,
+        words: Array.isArray(words) ? words.slice(0, 30) : [],
+      };
+    });
 
-    return NextResponse.json({
-      category: cat,
-      categoryLabel: catLabel,
-      words: Array.isArray(words) ? words.slice(0, 30) : [],
+    return NextResponse.json(value, {
+      headers: cached
+        ? { "X-Cache": "HIT" }
+        : { "X-Cache": "MISS", "Cache-Control": "public, max-age=86400" },
     });
   } catch (err) {
     console.error("/api/vocab-vault error:", err);
@@ -100,7 +110,10 @@ Rules:
   }
 }
 
-// GET /api/vocab-vault → returns categories list
+// GET /api/vocab-vault → returns categories list (instant, no LLM)
 export async function GET() {
-  return NextResponse.json({ categories: VOCAB_CATEGORIES });
+  return NextResponse.json(
+    { categories: VOCAB_CATEGORIES },
+    { headers: { "Cache-Control": "public, max-age=86400" } }
+  );
 }

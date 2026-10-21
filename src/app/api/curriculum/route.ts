@@ -1,28 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurriculum, getAllCurriculumNodes } from "@/lib/curriculum";
+import { cacheGet, cacheSet, cacheKey } from "@/lib/cache";
 
 // GET /api/curriculum?language=english
 // Returns the curriculum tree + the learner's progress per node.
+// Curriculum data (static) is cached in-memory forever.
+// Per-user progress is fetched fresh (DB query, but fast with index on language).
 export async function GET(req: NextRequest) {
   const language = req.nextUrl.searchParams.get("language") || "english";
-  const curriculum = getCurriculum(language);
-  if (!curriculum) {
-    return NextResponse.json(
-      { error: `No curriculum found for language: ${language}` },
-      { status: 404 }
-    );
+
+  // Static curriculum data cached forever (it never changes)
+  const curKey = cacheKey("curriculum", language);
+  const allNodesKey = cacheKey("curriculum-nodes", language);
+
+  let curriculum = cacheGet<ReturnType<typeof getCurriculum>>(curKey);
+  let allNodes = cacheGet<ReturnType<typeof getAllCurriculumNodes>>(allNodesKey);
+
+  if (!curriculum || !allNodes) {
+    curriculum = getCurriculum(language);
+    if (!curriculum) {
+      return NextResponse.json(
+        { error: `No curriculum found for language: ${language}` },
+        { status: 404 }
+      );
+    }
+    allNodes = getAllCurriculumNodes(language);
+    cacheSet(curKey, curriculum, 1000 * 60 * 60 * 24 * 365); // 1 year (effectively forever)
+    cacheSet(allNodesKey, allNodes, 1000 * 60 * 60 * 24 * 365);
   }
 
-  const progress = await db.progress.findMany({
-    where: { language },
-  });
+  // Fetch user progress (this changes, so always fresh)
+  let progress;
+  try {
+    progress = await db.progress.findMany({
+      where: { language },
+    });
+  } catch (e) {
+    // DB unavailable — return curriculum with all "locked" except first node
+    progress = [];
+  }
   const progressMap = new Map(progress.map((p) => [p.nodeId, p]));
 
-  // Compute unlock status. A node is "available" if:
-  // - it's the very first node in the curriculum, OR
-  // - the previous node (by order across all levels) is "completed".
-  const allNodes = getAllCurriculumNodes(language);
   const enrichedLevels = curriculum.levels.map((lvl) => ({
     ...lvl,
     nodes: lvl.nodes.map((node) => {
@@ -55,6 +74,8 @@ export async function GET(req: NextRequest) {
     curriculum: { ...curriculum, levels: enrichedLevels },
     totalNodes: allNodes.length,
     completedCount: progress.filter((p) => p.status === "completed").length,
+  }, {
+    headers: { "Cache-Control": "public, max-age=60" }, // CDN cache 1 min
   });
 }
 

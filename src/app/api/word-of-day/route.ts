@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import ZAI from "z-ai-web-dev-sdk";
 import { LANGUAGES, type Difficulty } from "@/lib/teacher-config";
+import { cacheGet, cacheSet, cacheKey } from "@/lib/cache";
 
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
 async function getZAI() {
@@ -13,7 +14,7 @@ interface WordOfDay {
   word: string;
   pronunciation: string;
   partOfSpeech: string;
-  meaning: string; // in hint language
+  meaning: string;
   example: string;
   exampleTranslation: string;
   funFact: string;
@@ -21,39 +22,51 @@ interface WordOfDay {
   date: string;
 }
 
-// GET /api/word-of-day?language=english
-// Returns today's word for the given language. Generates one if none exists
-// for today, then caches it in DB (re-purposing the Lesson model with a
-// special topic="word-of-day" and the date as the title).
+// GET /api/word-of-day?language=english&hintLanguage=Hindi
+// Returns today's word for the given language + hint language.
+// 2-tier cache: in-memory (1h) → DB (per language+hintLanguage+date) → LLM.
 export async function GET(req: NextRequest) {
   const language = req.nextUrl.searchParams.get("language") || "english";
+  const hintLanguage = req.nextUrl.searchParams.get("hintLanguage") || "Hindi";
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // Try to find today's cached word.
+  // Tier 1: in-memory cache (instant, 0ms)
+  const memKey = cacheKey("wod", language, hintLanguage, todayStr);
+  const mem = cacheGet<WordOfDay>(memKey);
+  if (mem) {
+    return NextResponse.json({ word: mem, cached: true }, {
+      headers: { "X-Cache": "MEM-HIT" },
+    });
+  }
+
+  // Tier 2: DB cache (1 query, ~50ms)
   const cached = await db.lesson.findFirst({
     where: {
       language,
       topic: "word-of-day",
-      title: todayStr,
+      title: `${todayStr}::${hintLanguage}`,
     },
   });
   if (cached) {
     try {
       const parsed = JSON.parse(cached.content) as WordOfDay;
-      return NextResponse.json({ word: parsed, cached: true });
+      cacheSet(memKey, parsed, 1000 * 60 * 60); // 1h mem cache
+      return NextResponse.json({ word: parsed, cached: true }, {
+        headers: { "X-Cache": "DB-HIT" },
+      });
     } catch {
       // fall through
     }
   }
 
-  // Generate a fresh word.
+  // Tier 3: generate fresh via LLM
   const langInfo = LANGUAGES.find((l) => l.code === language);
   const langName = langInfo?.name ?? "English";
 
   const systemPrompt = `You are SpeakLingo, an energetic ${langName} teacher. Pick ONE interesting and useful ${langName} word for the learner today. It should be a word that's commonly used but not too basic — something a learner would be excited to learn.
 
 Respond with ONLY a valid JSON object (no markdown, no fences, no commentary) with this exact shape:
-{"word":"...","pronunciation":"simple phonetic","partOfSpeech":"noun/verb/adj","meaning":"short meaning in Hindi/Hinglish","example":"a natural example sentence in ${langName}","exampleTranslation":"translation in Hindi/Hinglish","funFact":"one short interesting fact about this word or its usage in Hindi/Hinglish"}`;
+{"word":"...","pronunciation":"simple phonetic","partOfSpeech":"noun/verb/adj","meaning":"short meaning in ${hintLanguage}","example":"a natural example sentence in ${langName}","exampleTranslation":"translation in ${hintLanguage}","funFact":"one short interesting fact about this word or its usage in ${hintLanguage}"}`;
 
   try {
     const zai = await getZAI();
@@ -101,18 +114,21 @@ Respond with ONLY a valid JSON object (no markdown, no fences, no commentary) wi
     parsed.language = language;
     parsed.date = todayStr;
 
-    // Cache it
+    // Cache in DB + memory
     await db.lesson.create({
       data: {
         language,
         level: "beginner",
         topic: "word-of-day",
-        title: todayStr,
+        title: `${todayStr}::${hintLanguage}`,
         content: JSON.stringify(parsed),
       },
     });
+    cacheSet(memKey, parsed, 1000 * 60 * 60);
 
-    return NextResponse.json({ word: parsed, cached: false });
+    return NextResponse.json({ word: parsed, cached: false }, {
+      headers: { "X-Cache": "MISS" },
+    });
   } catch (err) {
     console.error("/api/word-of-day error:", err);
     return NextResponse.json(

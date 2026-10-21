@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { cacheDelete, cacheKey } from "@/lib/cache";
 
 // GET /api/learned?language=english
 // POST /api/learned  { language, type, item, meaning, example? }
@@ -7,12 +8,18 @@ import { db } from "@/lib/db";
 export async function GET(req: NextRequest) {
   const language = req.nextUrl.searchParams.get("language");
   const where = language ? { language } : {};
-  const items = await db.learnedItem.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
-  return NextResponse.json({ items });
+  try {
+    const items = await db.learnedItem.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    return NextResponse.json({ items }, {
+      headers: { "Cache-Control": "private, max-age=10" },
+    });
+  } catch (err) {
+    return NextResponse.json({ items: [] });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -53,6 +60,10 @@ export async function POST(req: NextRequest) {
         dueAt: new Date(),
       },
     }).catch(() => {});
+
+    // Invalidate stats cache (new learned item changes dashboard)
+    cacheDelete(cacheKey("stats"));
+
     return NextResponse.json({ item: created });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal server error";
@@ -65,6 +76,7 @@ export async function DELETE(req: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
-  await db.learnedItem.delete({ where: { id } });
+  await db.learnedItem.delete({ where: { id } }).catch(() => {});
+  cacheDelete(cacheKey("stats"));
   return NextResponse.json({ ok: true });
 }
