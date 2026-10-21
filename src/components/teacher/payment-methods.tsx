@@ -272,7 +272,16 @@ export function PaymentMethods({
         <div className="space-y-3">
           <Card className="p-4 bg-white text-center">
             <div className="flex justify-center mb-3">
-              {upiQrUrl ? (
+              {/* Prefer the actual scanned QR image (works in any UPI app,
+                  shows bank logo, etc.) over the generated UPI deep-link QR.
+                  Generated QR is used as fallback if image missing. */}
+              {UPI_CONFIG.qrImagePath ? (
+                <img
+                  src={UPI_CONFIG.qrImagePath}
+                  alt="UPI QR Code"
+                  className="w-56 h-56 rounded-lg border border-stone-100 object-contain"
+                />
+              ) : upiQrUrl ? (
                 <img
                   src={upiQrUrl}
                   alt="UPI QR Code"

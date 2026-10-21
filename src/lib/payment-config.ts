@@ -6,12 +6,15 @@ export const RAZORPAY_CONFIG = {
 };
 
 // Your UPI ID for direct QR payments (India only, no gateway fees).
-// @okaxis is Google Pay's default UPI handle, NOT Axis Bank.
-// Linked bank is SBI (State Bank of India).
+// Updated: 2026-10-22 — new SBI UPI ID
+// Linked bank: State Bank of India (SBI), account ending 9397
 export const UPI_CONFIG = {
-  upiId: "naveenkujur077-3@okaxis",
-  payeeName: "Naveen Kujur",
+  upiId: "8709909162@sbi",
+  payeeName: "Naveen Pratik Kujur",
   note: "SpeakLingo Premium Subscription",
+  // Path to the QR image (stored in /public) — used by PaymentMethods
+  // component to show the actual QR the user scans.
+  qrImagePath: "/upi-qr-sbi.jpeg",
 };
 
 export function toSmallestUnit(amount: number, currency: string): number {
@@ -43,9 +46,15 @@ export const PAYPAL_CONFIG = {
 };
 
 // ============================================================
-// PAYONEER — DISABLED (account blocked)
-// Agar future me naya Payoneer account banao, yahan details daalo
-// aur PaymentMethods component me Payoneer option wapas enable kar do.
+// OWNER MODE — free premium access for the project owner
+// ------------------------------------------------------------
+// The owner (Naveen) can unlock premium FOREVER for free by entering
+// the secret access code in the Paywall dialog:
+//   "Have an access code?" → enter code → premium unlocked.
+// Buyers don't know this code, so they see the paywall.
+//
+// Code is in src/lib/owner-mode.ts (constant OWNER_CODE).
+// This is by design: the owner learns for free, everyone else pays.
 // ============================================================
 export const PAYONEER_CONFIG = {
   email: "",
