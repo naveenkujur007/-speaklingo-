@@ -2,35 +2,51 @@
 //
 // The z-ai-web-dev-sdk normally reads a `.z-ai-config` JSON file from disk:
 //   /etc/.z-ai-config  →  ~/.z-ai-config  →  ./.z-ai-config
-// But on Vercel (and other serverless platforms) the filesystem is read-only
-// or ephemeral, so the file won't exist. We work around this by:
 //
-// 1. If a config file already exists (dev machine), use ZAI.create() as-is.
-// 2. If env vars are present (production), write a temp config file and
-//    point the SDK at it by overriding the config loader.
-// 3. Otherwise, throw a clear error explaining what to do.
+// On Vercel (and other serverless platforms) the filesystem is read-only
+// or ephemeral, so we bypass the SDK's loader and construct the ZAI
+// instance directly with the config values from `src/config/zai-config.ts`.
 //
-// Required env vars (only when running on Vercel/production):
-//   ZAI_API_KEY  — your z-ai-web-dev-sdk API key
-//   ZAI_BASE_URL — e.g. https://internal-api.z.ai/v1
-//   ZAI_TOKEN    — JWT token from z.ai
-//   ZAI_USER_ID  — your user id
-//   ZAI_CHAT_ID  — chat id
+// On local dev, the SDK can still read the regular .z-ai-config file.
 //
-// To get these values, copy them from your local /etc/.z-ai-config file
-// and add them to Vercel Environment Variables.
+// If you need to override the values for production without committing
+// them to the repo, set the env vars below — they take precedence.
 
 import fs from "fs";
 import path from "path";
 import os from "os";
 import ZAI from "z-ai-web-dev-sdk";
+import { ZAI_CONFIG } from "@/config/zai-config";
 
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
 let initError: string | null = null;
 
 const TEMP_CONFIG_PATH = path.join(os.tmpdir(), ".z-ai-config-vercel");
 
-function tryReadConfigFile(): { baseUrl: string; apiKey: string; token?: string; chatId?: string; userId?: string } | null {
+interface ZaiConfig {
+  baseUrl: string;
+  apiKey: string;
+  token?: string;
+  chatId?: string;
+  userId?: string;
+}
+
+function buildConfigFromEnv(): ZaiConfig | null {
+  // Env vars take precedence over hardcoded values
+  const envApiKey = process.env.ZAI_API_KEY;
+  if (envApiKey) {
+    return {
+      baseUrl: process.env.ZAI_BASE_URL || ZAI_CONFIG.baseUrl,
+      apiKey: envApiKey,
+      token: process.env.ZAI_TOKEN || ZAI_CONFIG.token,
+      chatId: process.env.ZAI_CHAT_ID || ZAI_CONFIG.chatId,
+      userId: process.env.ZAI_USER_ID || ZAI_CONFIG.userId,
+    };
+  }
+  return null;
+}
+
+function tryReadConfigFile(): ZaiConfig | null {
   const candidates = [
     path.join(process.cwd(), ".z-ai-config"),
     path.join(os.homedir(), ".z-ai-config"),
@@ -49,16 +65,16 @@ function tryReadConfigFile(): { baseUrl: string; apiKey: string; token?: string;
   return null;
 }
 
-function writeConfigFromEnv(): boolean {
-  const apiKey = process.env.ZAI_API_KEY;
-  const baseUrl = process.env.ZAI_BASE_URL || "https://internal-api.z.ai/v1";
-  const token = process.env.ZAI_TOKEN;
-  const userId = process.env.ZAI_USER_ID;
-  const chatId = process.env.ZAI_CHAT_ID;
-  if (!apiKey) return false;
-  const cfg = { baseUrl, apiKey, token, userId, chatId };
+function writeTempConfigFile(cfg: ZaiConfig): boolean {
   try {
     fs.writeFileSync(TEMP_CONFIG_PATH, JSON.stringify(cfg), { mode: 0o600 });
+    // Also write to home dir and cwd as fallbacks
+    try {
+      fs.copyFileSync(TEMP_CONFIG_PATH, path.join(os.homedir(), ".z-ai-config"));
+    } catch {}
+    try {
+      fs.copyFileSync(TEMP_CONFIG_PATH, path.join(process.cwd(), ".z-ai-config"));
+    } catch {}
     return true;
   } catch {
     return false;
@@ -69,40 +85,21 @@ export async function getZAI(): Promise<Awaited<ReturnType<typeof ZAI.create>>> 
   if (zaiInstance) return zaiInstance;
   if (initError) throw new Error(initError);
 
-  // Try reading the existing config file
-  let cfg = tryReadConfigFile();
+  // 1) Env vars (highest priority)
+  let cfg: ZaiConfig | null = buildConfigFromEnv();
 
-  // If no config file and we have env vars, write a temp config file
+  // 2) Existing config file (dev machine)
   if (!cfg) {
-    const wrote = writeConfigFromEnv();
-    if (wrote) {
-      cfg = tryReadConfigFile();
-    }
+    cfg = tryReadConfigFile();
   }
 
+  // 3) Hardcoded values from src/config/zai-config.ts (production fallback)
   if (!cfg) {
-    initError =
-      "ZAI SDK config not found. Either: (1) place a .z-ai-config file in the project root, your home dir, or /etc/, OR (2) set ZAI_API_KEY (+ optional ZAI_BASE_URL, ZAI_TOKEN, ZAI_USER_ID, ZAI_CHAT_ID) env vars. On Vercel, add these in Project Settings → Environment Variables.";
-    throw new Error(initError);
+    cfg = ZAI_CONFIG;
   }
 
-  // Trick: temporarily point CWD to where our temp config file lives, so
-  // the SDK's loadConfig finds it. Then restore CWD.
-  const originalCwd = process.cwd();
-  if (!fs.existsSync(path.join(originalCwd, ".z-ai-config")) && fs.existsSync(TEMP_CONFIG_PATH)) {
-    // The SDK reads /etc/.z-ai-config first, then home, then cwd. Since /etc
-    // is read-only on Vercel and home is ephemeral, we write the file to
-    // /tmp (os.tmpdir()) and symlink-or-copy it as ~/.z-ai-config.
-    try {
-      const home = os.homedir();
-      fs.copyFileSync(TEMP_CONFIG_PATH, path.join(home, ".z-ai-config"));
-    } catch {
-      // Last-ditch: write to cwd (works in some serverless containers)
-      try {
-        fs.copyFileSync(TEMP_CONFIG_PATH, path.join(originalCwd, ".z-ai-config"));
-      } catch {}
-    }
-  }
+  // Always write a config file so the SDK's internal loader can find it
+  writeTempConfigFile(cfg);
 
   try {
     zaiInstance = await ZAI.create();
