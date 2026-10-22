@@ -127,9 +127,8 @@ Respond with ONLY a valid JSON object (no markdown, no fences, no commentary) wi
     });
   } catch (err) {
     console.error("/api/word-of-day error:", err);
-    const errMsg = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Couldn't fetch word of the day.", debug: errMsg.substring(0, 500) },
+      { error: "Couldn't fetch word of the day." },
       { status: 500 }
     );
   }
