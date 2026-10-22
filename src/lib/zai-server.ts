@@ -1,108 +1,52 @@
 // Server-side ZAI SDK initialization wrapper.
 //
-// The z-ai-web-dev-sdk normally reads a `.z-ai-config` JSON file from disk:
-//   /etc/.z-ai-config  →  ~/.z-ai-config  →  ./.z-ai-config
+// The z-ai-web-dev-sdk normally reads a `.z-ai-config` JSON file from disk
+// via its `ZAI.create()` static method. On Vercel (serverless, ephemeral
+// filesystem), this fails because the file doesn't exist.
 //
-// On Vercel (and other serverless platforms) the filesystem is read-only
-// or ephemeral, so we bypass the SDK's loader and construct the ZAI
-// instance directly with the config values from `src/config/zai-config.ts`.
+// Solution: bypass `ZAI.create()` entirely. Construct the ZAI instance
+// directly with the hardcoded config from `src/config/zai-config.ts`.
 //
-// On local dev, the SDK can still read the regular .z-ai-config file.
+// The ZAI class is exported as default from the SDK — we can `new ZAI(cfg)`
+// directly, which is exactly what `ZAI.create()` does internally after
+// loading the config file.
 //
-// If you need to override the values for production without committing
-// them to the repo, set the env vars below — they take precedence.
+// If env vars are set (ZAI_API_KEY etc), they take precedence over the
+// hardcoded values.
 
-import fs from "fs";
-import path from "path";
-import os from "os";
 import ZAI from "z-ai-web-dev-sdk";
 import { ZAI_CONFIG } from "@/config/zai-config";
+import { DB_CONFIG } from "@/config/db-config";
 
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
+// Lazy singleton
+let zaiInstance: ZAI | null = null;
 let initError: string | null = null;
 
-const TEMP_CONFIG_PATH = path.join(os.tmpdir(), ".z-ai-config-vercel");
+// Set process.env so any other code that reads env vars still works
+if (!process.env.DATABASE_URL) process.env.DATABASE_URL = DB_CONFIG.databaseUrl;
+if (!process.env.DIRECT_URL) process.env.DIRECT_URL = DB_CONFIG.directUrl;
 
-interface ZaiConfig {
-  baseUrl: string;
-  apiKey: string;
-  token?: string;
-  chatId?: string;
-  userId?: string;
-}
-
-function buildConfigFromEnv(): ZaiConfig | null {
-  // Env vars take precedence over hardcoded values
-  const envApiKey = process.env.ZAI_API_KEY;
-  if (envApiKey) {
-    return {
-      baseUrl: process.env.ZAI_BASE_URL || ZAI_CONFIG.baseUrl,
-      apiKey: envApiKey,
-      token: process.env.ZAI_TOKEN || ZAI_CONFIG.token,
-      chatId: process.env.ZAI_CHAT_ID || ZAI_CONFIG.chatId,
-      userId: process.env.ZAI_USER_ID || ZAI_CONFIG.userId,
-    };
-  }
-  return null;
-}
-
-function tryReadConfigFile(): ZaiConfig | null {
-  const candidates = [
-    path.join(process.cwd(), ".z-ai-config"),
-    path.join(os.homedir(), ".z-ai-config"),
-    "/etc/.z-ai-config",
-    TEMP_CONFIG_PATH,
-  ];
-  for (const p of candidates) {
-    try {
-      const text = fs.readFileSync(p, "utf-8");
-      const cfg = JSON.parse(text);
-      if (cfg.baseUrl && cfg.apiKey) return cfg;
-    } catch {
-      // try next
-    }
-  }
-  return null;
-}
-
-function writeTempConfigFile(cfg: ZaiConfig): boolean {
-  try {
-    fs.writeFileSync(TEMP_CONFIG_PATH, JSON.stringify(cfg), { mode: 0o600 });
-    // Also write to home dir and cwd as fallbacks
-    try {
-      fs.copyFileSync(TEMP_CONFIG_PATH, path.join(os.homedir(), ".z-ai-config"));
-    } catch {}
-    try {
-      fs.copyFileSync(TEMP_CONFIG_PATH, path.join(process.cwd(), ".z-ai-config"));
-    } catch {}
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function getZAI(): Promise<Awaited<ReturnType<typeof ZAI.create>>> {
+export async function getZAI(): Promise<ZAI> {
   if (zaiInstance) return zaiInstance;
   if (initError) throw new Error(initError);
 
-  // 1) Env vars (highest priority)
-  let cfg: ZaiConfig | null = buildConfigFromEnv();
+  // Build config — env vars override hardcoded
+  const apiKey = process.env.ZAI_API_KEY || ZAI_CONFIG.apiKey;
+  const baseUrl = process.env.ZAI_BASE_URL || ZAI_CONFIG.baseUrl;
+  const token = process.env.ZAI_TOKEN || ZAI_CONFIG.token;
+  const userId = process.env.ZAI_USER_ID || ZAI_CONFIG.userId;
+  const chatId = process.env.ZAI_CHAT_ID || ZAI_CONFIG.chatId;
 
-  // 2) Existing config file (dev machine)
-  if (!cfg) {
-    cfg = tryReadConfigFile();
+  if (!apiKey || !baseUrl) {
+    initError =
+      "ZAI SDK requires apiKey and baseUrl. Set ZAI_API_KEY/ZAI_BASE_URL env vars or update src/config/zai-config.ts.";
+    throw new Error(initError);
   }
-
-  // 3) Hardcoded values from src/config/zai-config.ts (production fallback)
-  if (!cfg) {
-    cfg = ZAI_CONFIG;
-  }
-
-  // Always write a config file so the SDK's internal loader can find it
-  writeTempConfigFile(cfg);
 
   try {
-    zaiInstance = await ZAI.create();
+    // Construct ZAI directly with the config (bypasses the file loader)
+    // The SDK class accepts a config object as its constructor argument.
+    zaiInstance = new ZAI({ baseUrl, apiKey, token, userId, chatId });
     return zaiInstance;
   } catch (err) {
     initError = err instanceof Error ? err.message : String(err);
