@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getZAI } from "@/lib/zai-server";
 
 
 
@@ -21,7 +20,6 @@ function splitTextIntoChunks(text: string, maxLength = 1000): string[] {
       if (sentence.length <= maxLength) {
         current = sentence;
       } else {
-        // Hard split very long sentence
         for (let i = 0; i < sentence.length; i += maxLength) {
           chunks.push(sentence.slice(i, i + maxLength).trim());
         }
@@ -35,14 +33,20 @@ function splitTextIntoChunks(text: string, maxLength = 1000): string[] {
 
 // POST /api/tts
 // Body: { text: string, voice?: string, speed?: number }
-// Returns audio/wav binary. For long text we only synthesize the first chunk
-// to keep latency low for a conversational UI; the frontend can request
-// additional chunks if needed.
-// Default voice = "chuichui" (lively/energetic), default speed = 1.15
-// so the teacher sounds upbeat instead of slow/drowsy.
+// Returns audio/wav binary.
+//
+// Note: NVIDIA NIM doesn't have TTS. The original z-ai-web-dev-sdk's TTS
+// only works from Z.ai's internal cloud. On Vercel/public cloud, this
+// endpoint returns a "not supported" error so the frontend can fall back
+// to /api/tts-proxy (Google Translate TTS) or browser SpeechSynthesis.
+//
+// The frontend's speak.ts already implements this fallback chain:
+//   1. Try native browser SpeechSynthesis (instant, free)
+//   2. Try /api/tts-proxy (Google Translate proxy, free, professional voice)
+//   3. Try /api/tts (this endpoint — now 501)
 export async function POST(req: NextRequest) {
   try {
-    const { text, voice = "chuichui", speed = 1.15 } = await req.json();
+    const { text } = await req.json();
 
     if (!text || typeof text !== "string" || !text.trim()) {
       return NextResponse.json(
@@ -59,28 +63,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const zai = await getZAI();
-    const firstChunk = chunks[0];
-
-    const response = await zai.audio.tts.create({
-      input: firstChunk,
-      voice,
-      speed,
-      response_format: "wav",
-      stream: false,
-    });
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(new Uint8Array(arrayBuffer));
-
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        "Content-Type": "audio/wav",
-        "Content-Length": buffer.length.toString(),
-        "Cache-Control": "no-cache",
-      },
-    });
+    // TTS not available on public cloud — return helpful 501
+    return new NextResponse(
+      JSON.stringify({
+        error:
+          "Server-side TTS is only available in the Z.ai cloud environment. " +
+          "Use /api/tts-proxy (Google Translate proxy) or browser SpeechSynthesis instead.",
+      }),
+      {
+        status: 501,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (err) {
     console.error("/api/tts error:", err);
     const msg = err instanceof Error ? err.message : "Internal server error";

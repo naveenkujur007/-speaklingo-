@@ -33,54 +33,18 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(new Uint8Array(arrayBuffer));
     const base64Audio = buffer.toString("base64");
 
-    const zai = await getZAI();
-    const asrResponse = await zai.audio.asr.create({
-      file_base64: base64Audio,
-    });
-    const transcribed = (asrResponse?.text ?? "").trim();
-
-    if (!transcribed) {
-      return NextResponse.json(
-        {
-          error: "Couldn't hear you clearly. Please try again, a bit louder.",
-        },
-        { status: 422 }
-      );
-    }
-
-    const result = scorePronunciation(targetText, transcribed);
-
-    // Save the attempt for history.
-    const attempt = await db.pronunciationAttempt.create({
-      data: {
-        language,
-        targetText,
-        transcribed,
-        score: result.score,
-        phonemeNotes: JSON.stringify({
-          missedWords: result.missedWords,
-          extraWords: result.extraWords,
-        }),
+    // ASR not available on public cloud (NVIDIA NIM doesn't have ASR;
+    // z-ai-web-dev-sdk's ASR only works in Z.ai's internal cloud).
+    // Return helpful 501 — the browser-side pronunciation practice uses
+    // Web Speech API (SpeechRecognition) instead, which works everywhere.
+    return NextResponse.json(
+      {
+        error:
+          "Server-side ASR is only available in the Z.ai cloud environment. " +
+          "The app's pronunciation practice uses browser-native SpeechRecognition.",
       },
-    });
-
-    // Touch streak + achievements
-    const streakResult = await touchStreak(language);
-    const earned: string[] = ["first-pronunciation"];
-    if (result.score >= 90) earned.push("pronunciation-90");
-    for (const code of earned) {
-      await db.achievement.upsert({
-        where: { code_language: { code, language } },
-        update: {},
-        create: { code, language },
-      });
-    }
-
-    return NextResponse.json({
-      attemptId: attempt.id,
-      ...result,
-      earnedAchievements: earned,
-    });
+      { status: 501 }
+    );
   } catch (err) {
     console.error("/api/pronunciation error:", err);
     const msg = err instanceof Error ? err.message : "Internal server error";
