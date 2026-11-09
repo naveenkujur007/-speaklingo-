@@ -1,13 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import { DB_CONFIG } from "@/config/db-config";
 
-// Set DATABASE_URL from hardcoded config if env var is missing (Vercel
-// doesn't have env vars set by default — this makes it work out of box).
+// Set DATABASE_URL from hardcoded config if env var is missing.
 // Must run BEFORE any PrismaClient instantiation.
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = DB_CONFIG.databaseUrl;
 }
-if (!process.env.DIRECT_URL) {
+if (!process.env.DIRECT_URL && DB_CONFIG.directUrl) {
   process.env.DIRECT_URL = DB_CONFIG.directUrl;
 }
 

@@ -7,6 +7,7 @@ import {
   type Difficulty,
   type Lesson,
 } from "@/lib/teacher-config";
+import { getStaticLesson } from "@/lib/static-lessons";
 
 
 
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
   const level = req.nextUrl.searchParams.get("level") || "beginner";
   const topic = req.nextUrl.searchParams.get("topic") || "daily-life";
 
+  // Try DB cache first
   const recent = await db.lesson.findFirst({
     where: { language, level, topic },
     orderBy: { createdAt: "desc" },
@@ -67,6 +69,40 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Tier 2: Static lessons (instant, no LLM call needed)
+    if (!regenerate) {
+      const staticLesson = getStaticLesson(lang, lvl, tp);
+      if (staticLesson) {
+        // Save to DB so future requests use cached version
+        try {
+          const saved = await db.lesson.create({
+            data: {
+              language: lang,
+              level: lvl,
+              topic: tp,
+              title: staticLesson.title,
+              content: JSON.stringify(staticLesson),
+            },
+          });
+          return NextResponse.json({
+            lesson: staticLesson,
+            savedId: saved.id,
+            savedAt: saved.createdAt,
+            cached: false,
+            static: true,
+          });
+        } catch {
+          // DB save failed — still return the lesson
+          return NextResponse.json({
+            lesson: staticLesson,
+            cached: false,
+            static: true,
+          });
+        }
+      }
+    }
+
+    // Tier 3: LLM generation (slower, ~10s)
     const systemPrompt = buildLessonSystemPrompt({
       language: lang,
       level: lvl,
