@@ -36,3 +36,18 @@ if (process.env.NODE_ENV !== "production" && !globalForPrisma.prisma) {
 export function isDbAvailable(): boolean {
   return !!db;
 }
+
+// Helper: try a DB operation, return null if it fails (graceful degradation).
+// Use this in API routes to handle cases where DB is unavailable on serverless.
+export async function tryDb<T>(
+  fn: (db: PrismaClient) => Promise<T>,
+  fallback: T
+): Promise<T> {
+  if (!db) return fallback;
+  try {
+    return await fn(db);
+  } catch (e) {
+    console.error("DB operation failed (graceful fallback):", e);
+    return fallback;
+  }
+}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, tryDb } from "@/lib/db";
 import { cacheDelete, cacheKey } from "@/lib/cache";
 
 // GET /api/learned?language=english
@@ -8,18 +8,17 @@ import { cacheDelete, cacheKey } from "@/lib/cache";
 export async function GET(req: NextRequest) {
   const language = req.nextUrl.searchParams.get("language");
   const where = language ? { language } : {};
-  try {
-    const items = await db.learnedItem.findMany({
+  const items = await tryDb(
+    (db) => db.learnedItem.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take: 200,
-    });
-    return NextResponse.json({ items }, {
-      headers: { "Cache-Control": "private, max-age=10" },
-    });
-  } catch (err) {
-    return NextResponse.json({ items: [] });
-  }
+    }),
+    []
+  );
+  return NextResponse.json({ items }, {
+    headers: { "Cache-Control": "private, max-age=10" },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -33,38 +32,50 @@ export async function POST(req: NextRequest) {
       );
     }
     // Avoid duplicate stars for the same (language, item).
-    const existing = await db.learnedItem.findFirst({
-      where: { language, item },
-    });
+    const existing = await tryDb(
+      (db) => db.learnedItem.findFirst({
+        where: { language, item },
+      }),
+      null
+    );
     if (existing) {
       return NextResponse.json({ item: existing, alreadyExists: true });
     }
-    const created = await db.learnedItem.create({
-      data: {
-        language,
-        type,
-        item,
-        meaning,
-        example: example || null,
-        starred: true,
-      },
-    });
+    const created = await tryDb(
+      (db) => db.learnedItem.create({
+        data: {
+          language,
+          type,
+          item,
+          meaning,
+          example: example || null,
+          starred: true,
+        },
+      }),
+      null
+    );
+
     // Auto-create a review card so it shows up in the SRS queue.
-    await db.review.create({
-      data: {
-        language,
-        learnedItemId: created.id,
-        ease: 2.5,
-        interval: 0,
-        repetitions: 0,
-        dueAt: new Date(),
-      },
-    }).catch(() => {});
+    if (created) {
+      tryDb(
+        (db) => db.review.create({
+          data: {
+            language,
+            learnedItemId: created.id,
+            ease: 2.5,
+            interval: 0,
+            repetitions: 0,
+            dueAt: new Date(),
+          },
+        }),
+        null
+      ).catch(() => {});
+    }
 
     // Invalidate stats cache (new learned item changes dashboard)
     cacheDelete(cacheKey("stats"));
 
-    return NextResponse.json({ item: created });
+    return NextResponse.json({ item: created || { id: "local-" + Date.now(), language, type, item, meaning, example, starred: true, createdAt: new Date().toISOString() } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -76,7 +87,11 @@ export async function DELETE(req: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
-  await db.learnedItem.delete({ where: { id } }).catch(() => {});
+  await tryDb(
+    (db) => db.learnedItem.delete({ where: { id } }),
+    null
+  );
   cacheDelete(cacheKey("stats"));
   return NextResponse.json({ ok: true });
 }
+

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, tryDb } from "@/lib/db";
 import { getCurriculum, getAllCurriculumNodes } from "@/lib/curriculum";
 import { cacheGet, cacheSet, cacheKey } from "@/lib/cache";
 
@@ -31,11 +31,13 @@ export async function GET(req: NextRequest) {
   }
 
   // Fetch user progress (this changes, so always fresh)
-  let progress;
+  let progress: Array<{ nodeId: string; status: string; score: number | null; completedAt: string | null }> = [];
   try {
-    progress = await db.progress.findMany({
-      where: { language },
-    });
+    if (db) {
+      progress = await db.progress.findMany({
+        where: { language },
+      });
+    }
   } catch (e) {
     // DB unavailable — return curriculum with all "locked" except first node
     progress = [];
@@ -95,21 +97,32 @@ export async function POST(req: NextRequest) {
     const status = action === "complete" ? "completed" : "in-progress";
     const completedAt = action === "complete" ? new Date() : null;
 
-    const progress = await db.progress.upsert({
-      where: { language_nodeId: { language, nodeId } },
-      update: {
-        status,
-        ...(score !== undefined ? { score } : {}),
-        ...(completedAt ? { completedAt } : {}),
-      },
-      create: {
+    const progress = await tryDb(
+      (dbx) => dbx.progress.upsert({
+        where: { language_nodeId: { language, nodeId } },
+        update: {
+          status,
+          ...(score !== undefined ? { score } : {}),
+          ...(completedAt ? { completedAt } : {}),
+        },
+        create: {
+          language,
+          nodeId,
+          status,
+          score: score ?? null,
+          completedAt,
+        },
+      }),
+      {
+        id: "local-" + Date.now(),
         language,
         nodeId,
         status,
         score: score ?? null,
         completedAt,
-      },
-    });
+        updatedAt: new Date(),
+      }
+    );
 
     // Touch the streak for today.
     await touchStreak(language);
@@ -117,9 +130,12 @@ export async function POST(req: NextRequest) {
     // Award achievements if this is a completion.
     const earned: string[] = [];
     if (action === "complete") {
-      const completedCount = await db.progress.count({
-        where: { language, status: "completed" },
-      });
+      const completedCount = await tryDb(
+        (dbx) => dbx.progress.count({
+          where: { language, status: "completed" },
+        }),
+        0
+      );
       if (completedCount >= 1) earned.push("first-lesson");
       if (completedCount >= 5) earned.push("five-lessons");
       if (completedCount >= 10) earned.push("ten-lessons");
@@ -127,11 +143,14 @@ export async function POST(req: NextRequest) {
         earned.push("first-quiz-perfect");
       }
       for (const code of earned) {
-        await db.achievement.upsert({
-          where: { code_language: { code, language } },
-          update: {},
-          create: { code, language },
-        });
+        await tryDb(
+          (dbx) => dbx.achievement.upsert({
+            where: { code_language: { code, language } },
+            update: {},
+            create: { code, language },
+          }),
+          null
+        );
       }
     }
 
@@ -151,18 +170,24 @@ export async function touchStreak(language: string) {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
-  const existing = await db.streak.findUnique({ where: { language } });
+  const existing = await tryDb(
+    (dbx) => dbx.streak.findUnique({ where: { language } }),
+    null
+  );
 
   if (!existing) {
-    await db.streak.create({
-      data: {
-        language,
-        currentStreak: 1,
-        longestStreak: 1,
-        lastActiveDate: todayStr,
-        totalActiveDays: 1,
-      },
-    });
+    await tryDb(
+      (dbx) => dbx.streak.create({
+        data: {
+          language,
+          currentStreak: 1,
+          longestStreak: 1,
+          lastActiveDate: todayStr,
+          totalActiveDays: 1,
+        },
+      }),
+      null
+    );
     return { currentStreak: 1, isNew: true };
   }
 
@@ -176,15 +201,18 @@ export async function touchStreak(language: string) {
   const newLongest = Math.max(existing.longestStreak, newCurrent);
   const newTotal = existing.totalActiveDays + 1;
 
-  await db.streak.update({
-    where: { language },
-    data: {
-      currentStreak: newCurrent,
-      longestStreak: newLongest,
-      lastActiveDate: todayStr,
-      totalActiveDays: newTotal,
-    },
-  });
+  await tryDb(
+    (dbx) => dbx.streak.update({
+      where: { language },
+      data: {
+        currentStreak: newCurrent,
+        longestStreak: newLongest,
+        lastActiveDate: todayStr,
+        totalActiveDays: newTotal,
+      },
+    }),
+    null
+  );
 
   // Streak-based achievements
   const earned: string[] = [];
@@ -192,11 +220,14 @@ export async function touchStreak(language: string) {
   if (newCurrent >= 7) earned.push("7-day-streak");
   if (newCurrent >= 30) earned.push("30-day-streak");
   for (const code of earned) {
-    await db.achievement.upsert({
-      where: { code_language: { code, language } },
-      update: {},
-      create: { code, language },
-    });
+    await tryDb(
+      (dbx) => dbx.achievement.upsert({
+        where: { code_language: { code, language } },
+        update: {},
+        create: { code, language },
+      }),
+      null
+    );
   }
 
   return { currentStreak: newCurrent, isNew: true, earnedAchievements: earned };

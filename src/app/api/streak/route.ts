@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, tryDb } from "@/lib/db";
 import { touchStreak } from "@/app/api/curriculum/route";
 
 // GET /api/streak?language=english
 export async function GET(req: NextRequest) {
   const language = req.nextUrl.searchParams.get("language") || "english";
-  const streak = await db.streak.findUnique({ where: { language } });
+  const streak = await tryDb(
+    (db) => db.streak.findUnique({ where: { language } }),
+    null
+  );
 
   if (!streak) {
     return NextResponse.json({

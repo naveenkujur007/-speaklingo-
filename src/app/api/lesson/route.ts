@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, tryDb } from "@/lib/db";
 import { getZAI } from "@/lib/zai-server";
 import {
   buildLessonSystemPrompt,
@@ -9,8 +9,6 @@ import {
 } from "@/lib/teacher-config";
 import { getStaticLesson } from "@/lib/static-lessons";
 
-
-
 // GET /api/lesson?language=english&level=beginner&topic=daily-life
 // Returns the most recent saved lesson for the given config, or null.
 export async function GET(req: NextRequest) {
@@ -18,13 +16,21 @@ export async function GET(req: NextRequest) {
   const level = req.nextUrl.searchParams.get("level") || "beginner";
   const topic = req.nextUrl.searchParams.get("topic") || "daily-life";
 
-  // Try DB cache first
-  const recent = await db.lesson.findFirst({
-    where: { language, level, topic },
-    orderBy: { createdAt: "desc" },
-  });
+  // Try DB cache first (graceful fallback if DB unavailable)
+  const recent = await tryDb(
+    (db) => db.lesson.findFirst({
+      where: { language, level, topic },
+      orderBy: { createdAt: "desc" },
+    }),
+    null
+  );
 
   if (!recent) {
+    // Check static lesson before returning null
+    const staticLesson = getStaticLesson(language, level, topic);
+    if (staticLesson) {
+      return NextResponse.json({ lesson: staticLesson, static: true });
+    }
     return NextResponse.json({ lesson: null });
   }
   try {
@@ -46,14 +52,17 @@ export async function POST(req: NextRequest) {
     const tp = topic || "daily-life";
     const hint = hintLanguage || "English";
 
-    // If not explicitly regenerating, try to return today's existing lesson.
+    // Tier 1: If not explicitly regenerating, try to return today's existing lesson.
     if (!regenerate) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
-      const todays = await db.lesson.findFirst({
-        where: { language: lang, level: lvl, topic: tp, createdAt: { gte: startOfToday } },
-        orderBy: { createdAt: "desc" },
-      });
+      const todays = await tryDb(
+        (db) => db.lesson.findFirst({
+          where: { language: lang, level: lvl, topic: tp, createdAt: { gte: startOfToday } },
+          orderBy: { createdAt: "desc" },
+        }),
+        null
+      );
       if (todays) {
         try {
           const parsed = JSON.parse(todays.content) as Lesson;
@@ -64,7 +73,7 @@ export async function POST(req: NextRequest) {
             cached: true,
           });
         } catch {
-          // fall through to regeneration
+          // fall through
         }
       }
     }
@@ -73,32 +82,26 @@ export async function POST(req: NextRequest) {
     if (!regenerate) {
       const staticLesson = getStaticLesson(lang, lvl, tp);
       if (staticLesson) {
-        // Save to DB so future requests use cached version
-        try {
-          const saved = await db.lesson.create({
-            data: {
-              language: lang,
-              level: lvl,
-              topic: tp,
-              title: staticLesson.title,
-              content: JSON.stringify(staticLesson),
-            },
-          });
-          return NextResponse.json({
-            lesson: staticLesson,
-            savedId: saved.id,
-            savedAt: saved.createdAt,
-            cached: false,
-            static: true,
-          });
-        } catch {
-          // DB save failed — still return the lesson
-          return NextResponse.json({
-            lesson: staticLesson,
-            cached: false,
-            static: true,
-          });
+        // Save to DB in background (don't block response)
+        if (db) {
+          tryDb(
+            (dbx) => dbx.lesson.create({
+              data: {
+                language: lang,
+                level: lvl,
+                topic: tp,
+                title: staticLesson.title,
+                content: JSON.stringify(staticLesson),
+              },
+            }),
+            null
+          ).catch(() => {});
         }
+        return NextResponse.json({
+          lesson: staticLesson,
+          cached: false,
+          static: true,
+        });
       }
     }
 
@@ -119,6 +122,7 @@ export async function POST(req: NextRequest) {
         { role: "user", content: `Generate the lesson now. Output ONLY JSON.` } as any,
       ],
       thinking: { type: "disabled" },
+      max_tokens: 2000,
     });
 
     const raw = completion.choices[0]?.message?.content ?? "";
@@ -149,25 +153,36 @@ export async function POST(req: NextRequest) {
     lesson.grammar.examples = Array.isArray(lesson.grammar.examples) ? lesson.grammar.examples : [];
     lesson.grammar.commonMistakes = Array.isArray(lesson.grammar.commonMistakes) ? lesson.grammar.commonMistakes : [];
 
-    const saved = await db.lesson.create({
-      data: {
-        language: lang,
-        level: lvl,
-        topic: tp,
-        title: lesson.title || `${lang}-${tp}-${lvl}`,
-        content: JSON.stringify(lesson),
-      },
-    });
+    // Save in background — don't block response
+    if (db) {
+      tryDb(
+        (dbx) => dbx.lesson.create({
+          data: {
+            language: lang,
+            level: lvl,
+            topic: tp,
+            title: lesson.title || `${lang}-${tp}-${lvl}`,
+            content: JSON.stringify(lesson),
+          },
+        }),
+        null
+      ).catch(() => {});
+    }
 
     return NextResponse.json({
       lesson,
-      savedId: saved.id,
-      savedAt: saved.createdAt,
       cached: false,
     });
   } catch (err) {
     console.error("/api/lesson error:", err);
     const msg = err instanceof Error ? err.message : "Internal server error";
+
+    // Fallback: return any static lesson (basic english lesson)
+    const staticLesson = getStaticLesson("english", "beginner", "daily-life");
+    if (staticLesson) {
+      return NextResponse.json({ lesson: staticLesson, static: true, warning: msg });
+    }
+
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
